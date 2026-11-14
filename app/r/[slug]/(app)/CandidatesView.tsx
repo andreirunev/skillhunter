@@ -4,7 +4,6 @@ import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { CircleDot, Handshake, Lock, Send, ThumbsUp } from "lucide-react";
 import { FilterPills } from "@/components/ui/FilterPills";
-import { BigCode } from "@/components/ui/BigCode";
 import { AvatarTile, ListRow } from "@/components/ui/ListRow";
 import { SectionLabel } from "@/components/ui/ScreenTitle";
 import { SearchInput } from "@/components/ui/SearchInput";
@@ -23,7 +22,6 @@ export type CandidateItem = {
   status: Status;
   finishedAt: number | null;
   sub: string[]; // facts, shown with dividers between them
-  inviteCode: string | null;
   contact: Contact | null; // set only once the candidate shared details with consent
 };
 
@@ -57,7 +55,7 @@ export function CandidatesView({ slug, items }: { slug: string; items: Candidate
   const q = query.trim().toLowerCase();
   const shown = pool.filter((c) =>
     (filter === "all" || c.status === filter) &&
-    (!q || [c.name, c.inviteCode, c.contact?.full_name, c.contact?.phone, c.contact?.email]
+    (!q || [c.name, c.contact?.full_name, c.contact?.phone, c.contact?.email]
       .some((x) => x?.toLowerCase().includes(q))));
 
   // Default anonymous view: finished candidates without a decision first
@@ -93,7 +91,7 @@ export function CandidatesView({ slug, items }: { slug: string; items: Candidate
         ))}
       </div>
 
-      <SearchInput label="Search candidates" placeholder="Search name or booth code" value={query} onChange={setQuery} />
+      <SearchInput label="Search candidates" placeholder="Search name" value={query} onChange={setQuery} />
       <FilterPills label="Filter by status" options={FILTERS} value={filter} onChange={setFilter} />
 
       {needs.length > 0 && <Section label={joinSep(["Needs your call", needs.length])} slug={slug} items={needs} />}
@@ -114,7 +112,6 @@ function Section({ label, slug, items }: { label: ReactNode; slug: string; items
             <li key={c.id}>
               {c.contact ? <IdentifiedRow slug={slug} item={c} contact={c.contact} /> : <ListRow href={`/r/${slug}/a/${c.id}`} title={c.name} sub={joinSep(c.sub)}
                 leading={<AvatarTile emoji={c.emoji} color={c.color} />}
-                meta={c.inviteCode && <BigCode code={c.inviteCode} />}
                 trailing={<StatusPill status={c.status} />} />}
             </li>
           ))}

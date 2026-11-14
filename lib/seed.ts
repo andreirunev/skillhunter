@@ -174,7 +174,11 @@ export async function seed(sql: postgres.Sql, { fresh = false } = {}) {
         stage: STAGE_FOR[status] ?? "anonymous",
         contact: status === "interview" ? sql.json(TEST_CONTACT) : null,
       });
-      if (status in STAGE_FOR || status === "invited") invitations.push({ attempt_id: id, code: makeInviteCode(), sent_at: new Date(startedAt + elapsed + 120_000) });
+      if (status in STAGE_FOR || status === "invited") {
+        let code = makeInviteCode();
+        while (invitations.some((inv) => inv.code === code)) code = makeInviteCode();
+        invitations.push({ attempt_id: id, code, sent_at: new Date(startedAt + elapsed + 120_000) });
+      }
     }
     await sql`INSERT INTO attempts ${sql(attempts)}`;
     await sql`INSERT INTO answers ${sql(answers)}`;

@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { CircleHelp } from "lucide-react";
 import { AutoRefresh } from "@/components/AutoRefresh";
+import { FindByCode } from "@/components/FindByCode";
 import { FabButton } from "@/components/ui/FabButton";
 import { ScreenTitle } from "@/components/ui/ScreenTitle";
 import { getCompany, listCandidates } from "@/lib/recruiter";
@@ -21,6 +22,7 @@ const STAGE_NOTE: Partial<Record<Stage, string>> = {
 // Candidates tab: arrival order (newest first), never sorted by results.
 export default async function CandidatesPage(props: PageProps<"/r/[slug]">) {
   const { slug } = await props.params;
+  const { find } = await props.searchParams;
   const company = await getCompany(slug);
   if (!company) notFound();
   const rows = await listCandidates(company.test_id);
@@ -39,7 +41,6 @@ export default async function CandidatesPage(props: PageProps<"/r/[slug]">) {
         : ["In progress", `${c.answered}/${company.task_count} tasks`]),
       LANG_SHORT[c.lang] ?? c.lang,
     ],
-    inviteCode: c.invite_code,
     contact: c.stage === "full_interview" ? c.contact : null,
   }));
 
@@ -48,6 +49,7 @@ export default async function CandidatesPage(props: PageProps<"/r/[slug]">) {
       <AutoRefresh seconds={10} />
       <ScreenTitle title="Candidates"
         help={{ href: `/r/${slug}/about`, label: "How it works", icon: <CircleHelp className="size-4" aria-hidden /> }} />
+      <FindByCode slug={slug} autoFocus={find === "1"} />
       <CandidatesView slug={slug} items={items} />
       <FabButton href={`/r/${slug}/codes?print=1`} label="Print booth codes" />
     </div>

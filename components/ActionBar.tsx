@@ -2,7 +2,7 @@
 
 import { useCallback, useState, type FormEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { Check, Ellipsis } from "lucide-react";
+import { Check, CircleCheck, Ellipsis } from "lucide-react";
 import { useCandidateStatus } from "@/components/CandidateStatus";
 import { Spinner } from "@/components/Spinner";
 import { ActionSheet } from "@/components/ui/ActionSheet";
@@ -10,7 +10,7 @@ import { joinSep } from "@/components/ui/Sep";
 import { STATUS_TEXT } from "@/components/ui/StatusPill";
 import { toast } from "@/components/ui/Toast";
 import type { Status } from "@/lib/recruiter";
-import { isRecruiterStage, isStage, normalizeInviteCode, type RecruiterStage, type Stage } from "@/lib/stage";
+import { isInviteCode, isRecruiterStage, isStage, normalizeInviteCode, type RecruiterStage, type Stage } from "@/lib/stage";
 
 const isStatus = (x: unknown): x is Status => typeof x === "string" && Object.hasOwn(STATUS_TEXT, x);
 
@@ -22,17 +22,19 @@ const LABELS: { status: Status; label: string }[] = [
   { status: "not_now", label: "Not now" },
 ];
 
-type Busy = "invite" | "start" | "next" | "close" | "status";
+type Busy = "invite" | "verify" | "start" | "next" | "close" | "status";
 type Confirm = { to: RecruiterStage; from: Stage; busy: Busy };
 
-function infoFor(stage: Stage, code: string | null): ReactNode {
+function infoFor(stage: Stage, invited: boolean, verified: boolean): ReactNode {
   switch (stage) {
     case "mini_interview": return joinSep(["Short interview started", "your call on the next step"]);
     case "contact_requested": return "Waiting for candidate details";
     case "closed": return joinSep(["Not this time", "the candidate sees a polite thank-you"]);
     case "full_interview": return joinSep(["Contact details received", "see Identified"]);
     case "contact_declined": return "The candidate chose not to share details";
-    default: return code ? joinSep(["Invited", "type the code from the candidate's phone"]) : "Your call. Nothing is decided automatically.";
+    default:
+      if (!invited) return "Your call. Nothing is decided automatically.";
+      return verified ? "Code verified" : joinSep(["Invited", "type the code from the candidate's phone"]);
   }
 }
 
@@ -55,12 +57,13 @@ function confirmText({ to, from }: Confirm) {
 }
 
 // Bar fixed above the tab bar. Every step on a person is a human tap here:
-// invite, start the short interview with the candidate's code, then request
+// invite, check the code from the candidate's phone (on the server; the
+// recruiter never sees the code), start the short interview, then request
 // contact details or "Not this time" (both confirmed, undoable until the
 // candidate answers). "Set status" holds the recruiter's own labels.
 export function ActionBar() {
   const router = useRouter();
-  const { attemptId, status, code, stage, setSaved } = useCandidateStatus();
+  const { attemptId, status, invited, verified, stage, setSaved } = useCandidateStatus();
   const [busy, setBusy] = useState<Busy | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [statusSheet, setStatusSheet] = useState(false);
@@ -91,8 +94,10 @@ export function ActionBar() {
         return null;
       }
       if (!res.ok) {
-        setError(data.error === "wrong_code"
-          ? "That code does not match. Check the candidate's phone."
+        if (data.error === "not_verified") setSaved({ verified: false });
+        setError(data.error === "wrong_code" ? "Code does not match. Check the candidate's phone."
+          : data.error === "rate_limited" ? "Too many wrong codes. Try again in a minute."
+          : data.error === "not_verified" ? "The code check expired. Type the code again."
           : `Could not save (${data.error ?? `HTTP ${res.status}`}). Tap again.`);
         return null;
       }
@@ -110,17 +115,28 @@ export function ActionBar() {
 
   async function saveStatus(next: Status, kind: Busy) {
     const data = await call("status", { status: next }, kind);
-    if (data && isStatus(data.status)) setSaved({ status: data.status, code: typeof data.code === "string" ? data.code : null });
+    if (data && isStatus(data.status)) setSaved({ status: data.status, invited: data.invited === true });
   }
 
-  async function start(e: FormEvent) {
-    e.preventDefault();
-    if (normalizeInviteCode(typed).length !== 4 || busy) return;
-    const data = await call("start", { code: typed }, "start");
-    if (data && isStage(data.stage) && isStatus(data.status)) {
-      setSaved({ stage: data.stage, status: data.status });
+  // Checked on the server as soon as 4 valid characters are typed.
+  async function verify(raw: string) {
+    if (busy || !isInviteCode(normalizeInviteCode(raw))) return;
+    const data = await call("verify", { code: raw }, "verify");
+    if (data?.verified === true) {
+      setSaved({ verified: true });
       setTyped("");
     }
+  }
+
+  function onType(value: string) {
+    const next = value.toUpperCase();
+    setTyped(next);
+    if (normalizeInviteCode(next) !== normalizeInviteCode(typed)) verify(next);
+  }
+
+  async function start() {
+    const data = await call("start", {}, "start");
+    if (data && isStage(data.stage) && isStatus(data.status)) setSaved({ stage: data.stage, status: data.status });
   }
 
   async function moveStage(c: Confirm) {
@@ -156,16 +172,30 @@ export function ActionBar() {
         {moreButton}
       </div>
     );
-  } else if (stage === "anonymous" && code) {
+  } else if (stage === "anonymous" && invited && verified) {
     buttons = (
-      <form onSubmit={start} className="grid grid-cols-[1fr_auto_auto] gap-2">
-        <input value={typed} onChange={(e) => setTyped(e.target.value.toUpperCase())} disabled={busy !== null}
-          aria-label="Candidate's 4-character code" placeholder="Candidate's 4-character code" maxLength={6}
-          autoComplete="off" autoCapitalize="characters" spellCheck={false}
-          className="min-h-12 w-full min-w-0 rounded-btn border border-border bg-card px-3 text-base font-semibold tracking-[0.08em] text-fg outline-none placeholder:font-normal placeholder:tracking-normal placeholder:text-muted focus:border-fg/40" />
-        <button type="submit" disabled={busy !== null || normalizeInviteCode(typed).length !== 4} aria-busy={busy === "start"}
+      <div className="grid grid-cols-[1fr_1fr_auto] gap-2">
+        <p className="inline-flex min-h-12 items-center justify-center gap-1.5 rounded-btn bg-ok/15 px-2 text-sm font-semibold text-ok">
+          <CircleCheck className="size-4 shrink-0" aria-hidden />Code verified
+        </p>
+        <button type="button" onClick={start} disabled={busy !== null} aria-busy={busy === "start"}
           className="ui-btn ui-btn-primary min-h-12 px-4 text-base">
           {label("start", "Start")}
+        </button>
+        {moreButton}
+      </div>
+    );
+  } else if (stage === "anonymous" && invited) {
+    // Empty on purpose: no prefill or autofill, the code comes from the phone.
+    buttons = (
+      <form onSubmit={(e: FormEvent) => { e.preventDefault(); verify(typed); }} className="grid grid-cols-[1fr_auto_auto] gap-2">
+        <input value={typed} onChange={(e) => onType(e.target.value)} disabled={busy !== null && busy !== "verify"}
+          aria-label="Code from candidate's phone" placeholder="Code from candidate's phone" maxLength={9}
+          autoComplete="off" autoCorrect="off" autoCapitalize="characters" spellCheck={false} name="interview-code-check"
+          className="min-h-12 w-full min-w-0 rounded-btn border border-border bg-card px-3 text-base font-semibold tracking-[0.12em] text-fg outline-none placeholder:font-normal placeholder:tracking-normal placeholder:text-muted focus:border-fg/40" />
+        <button type="button" disabled aria-busy={busy === "verify"}
+          className="ui-btn ui-btn-primary min-h-12 px-4 text-base">
+          {busy === "verify" ? <Spinner /> : "Start"}
         </button>
         {moreButton}
       </form>
@@ -193,8 +223,8 @@ export function ActionBar() {
     );
   }
 
-  const info = error ?? infoFor(stage, code);
-  const strong = error || stage === "contact_requested" || stage === "full_interview";
+  const info = error ?? infoFor(stage, invited, verified);
+  const strong = error || stage === "contact_requested" || stage === "full_interview" || (invited && verified && stage === "anonymous");
   const sheetText = confirm && confirmText(confirm);
 
   return (

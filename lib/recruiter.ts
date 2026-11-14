@@ -6,7 +6,7 @@ import type { FlagCode } from "./flags.ts";
 import type { Answer, AnswerKey, Skill, TaskPayload, TaskType } from "./tasks.ts";
 import type { Lang } from "./i18n.ts";
 import type { TicketTemplate } from "./tickets.ts";
-import { normalizeInviteCode, type Contact, type RecruiterStage, type Stage } from "./stage.ts";
+import { isInviteCode, normalizeInviteCode, type Contact, type RecruiterStage, type Stage } from "./stage.ts";
 import { closeExpiredForTest, TIME_LIMIT_MINUTES } from "./timing.ts";
 
 // Recruiter-side data. Demo access is by company slug; a real deployment puts
@@ -41,10 +41,14 @@ export type CandidateRow = {
   answered: number;
   total_ms: number; // finished_at - started_at, server timestamps (0 while in progress)
   limit_reached: boolean; // closed at the deadline
-  invite_code: string | null;
+  invited: boolean; // has an interview code (the code itself never reaches the recruiter)
+  code_verified: boolean; // the recruiter typed the right code in the last 30 minutes
   stage: Stage;
   contact: Contact | null; // only at stage full_interview (candidate consent)
 };
+
+// Recruiter queries read "invited" and "verified", never i.code itself.
+const VERIFY_MINUTES = 30;
 
 // Arrival order only (newest first). Deliberately no correctness or flag counts.
 export async function listCandidates(testId: string): Promise<CandidateRow[]> {
@@ -55,7 +59,8 @@ export async function listCandidates(testId: string): Promise<CandidateRow[]> {
       (SELECT count(*)::int FROM answers WHERE attempt_id = a.id) AS answered,
       coalesce(extract(epoch from (a.finished_at - a.started_at)) * 1000, 0)::int AS total_ms,
       coalesce(a.finished_at >= a.started_at + make_interval(mins => ${TIME_LIMIT_MINUTES}), false) AS limit_reached,
-      i.code AS invite_code, a.stage, a.contact
+      i.attempt_id IS NOT NULL AS invited,
+      coalesce(i.code_verified_at > now() - make_interval(mins => ${VERIFY_MINUTES}), false) AS code_verified, a.stage, a.contact
     FROM attempts a LEFT JOIN invitations i ON i.attempt_id = a.id
     WHERE a.test_id = ${testId}::uuid
     ORDER BY a.started_at DESC`;
@@ -90,7 +95,8 @@ export async function getCandidate(testId: string, attemptId: string) {
       a.started_at, a.finished_at,
       coalesce(extract(epoch from (a.finished_at - a.started_at)) * 1000, 0)::int AS total_ms,
       coalesce(a.finished_at >= a.started_at + make_interval(mins => ${TIME_LIMIT_MINUTES}), false) AS limit_reached,
-      i.code AS invite_code, a.stage, a.contact
+      i.attempt_id IS NOT NULL AS invited,
+      coalesce(i.code_verified_at > now() - make_interval(mins => ${VERIFY_MINUTES}), false) AS code_verified, a.stage, a.contact
     FROM attempts a LEFT JOIN invitations i ON i.attempt_id = a.id
     WHERE a.id = ${attemptId}::uuid AND a.test_id = ${testId}::uuid`;
   if (!attempt) return null;
@@ -107,35 +113,92 @@ export async function getCandidate(testId: string, attemptId: string) {
   return { attempt, tasks: [...tasks] };
 }
 
-// A human decision. "invited" also creates the booth code the candidate sees.
-export async function setStatus(attemptId: string, status: Status): Promise<{ code: string | null } | null> {
+// A human decision. "invited" also creates the interview code, which only the
+// candidate's phone shows. Returns whether an invitation exists, never the code.
+export async function setStatus(attemptId: string, status: Status): Promise<{ invited: boolean } | null> {
   if (!isUuid(attemptId)) return null;
   const sql = db();
   const rows = await sql`UPDATE attempts SET status = ${status} WHERE id = ${attemptId}::uuid RETURNING id`;
   if (!rows.length) return null;
   if (status === "invited") {
-    await sql`
-      INSERT INTO invitations (attempt_id, code) VALUES (${attemptId}::uuid, ${makeInviteCode()})
-      ON CONFLICT (attempt_id) DO NOTHING`;
+    // Unique within the company: on the rare clash, try another code.
+    for (let i = 0; i < 8; i++) {
+      const code = makeInviteCode();
+      const added = await sql`
+        INSERT INTO invitations (attempt_id, code)
+        SELECT ${attemptId}::uuid, ${code}
+        WHERE NOT EXISTS (
+          SELECT 1 FROM invitations i JOIN attempts a ON a.id = i.attempt_id JOIN tests t ON t.id = a.test_id
+          WHERE i.code = ${code} AND t.company_id = (
+            SELECT t2.company_id FROM attempts a2 JOIN tests t2 ON t2.id = a2.test_id WHERE a2.id = ${attemptId}::uuid))
+        ON CONFLICT (attempt_id) DO NOTHING
+        RETURNING attempt_id`;
+      if (added.length) break;
+      const [has] = await sql`SELECT 1 FROM invitations WHERE attempt_id = ${attemptId}::uuid`;
+      if (has) break;
+    }
   }
-  const [inv] = await sql<{ code: string }[]>`SELECT code FROM invitations WHERE attempt_id = ${attemptId}::uuid`;
-  return { code: inv?.code ?? null };
+  const [inv] = await sql`SELECT 1 FROM invitations WHERE attempt_id = ${attemptId}::uuid`;
+  return { invited: Boolean(inv) };
 }
 
-// Mini-interview starts when the recruiter types the code from the
-// candidate's phone. Only from "anonymous", and only with the right code.
-export async function startInterview(attemptId: string, code: string): Promise<"ok" | "wrong_code" | "not_found"> {
+// Wrong interview-code tries: at most 10 per minute per company.
+const MISS_LIMIT = 10;
+
+async function tooManyMisses(companyId: string): Promise<boolean> {
+  const [{ n }] = await db()<{ n: number }[]>`
+    SELECT count(*)::int AS n FROM code_misses WHERE company_id = ${companyId}::uuid AND at > now() - interval '1 minute'`;
+  return n >= MISS_LIMIT;
+}
+
+async function recordMiss(companyId: string): Promise<void> {
+  const sql = db();
+  await sql`INSERT INTO code_misses (company_id) VALUES (${companyId}::uuid)`;
+  await sql`DELETE FROM code_misses WHERE at < now() - interval '10 minutes'`;
+}
+
+export type CodeCheck = { ok: true; attemptId: string } | { ok: false; error: "wrong_code" | "rate_limited" };
+
+// The recruiter types the code from the candidate's phone. A match within the
+// company (from a candidate card: for that attempt only) marks it verified.
+export async function verifyCode(companyId: string, code: string, attemptId: string | null = null): Promise<CodeCheck> {
+  if (await tooManyMisses(companyId)) return { ok: false, error: "rate_limited" };
+  const norm = normalizeInviteCode(code);
+  const rows = isInviteCode(norm) && (attemptId === null || isUuid(attemptId))
+    ? await db()<{ attempt_id: string }[]>`
+        UPDATE invitations i SET code_verified_at = now()
+        FROM attempts a JOIN tests t ON t.id = a.test_id
+        WHERE a.id = i.attempt_id AND t.company_id = ${companyId}::uuid AND i.code = ${norm}
+          AND (${attemptId}::uuid IS NULL OR a.id = ${attemptId}::uuid)
+        RETURNING i.attempt_id`
+    : [];
+  if (rows.length === 1) return { ok: true, attemptId: rows[0].attempt_id };
+  await recordMiss(companyId);
+  return { ok: false, error: "wrong_code" };
+}
+
+// Mini-interview starts only from "anonymous" and only within 30 minutes of
+// a verified code.
+export async function startInterview(attemptId: string): Promise<"ok" | "not_verified" | "not_found"> {
   if (!isUuid(attemptId)) return "not_found";
   const sql = db();
   const rows = await sql`
     UPDATE attempts a SET stage = 'mini_interview', status = 'at_booth'
     FROM invitations i
     WHERE i.attempt_id = a.id AND a.id = ${attemptId}::uuid AND a.stage = 'anonymous'
-      AND upper(regexp_replace(i.code, '[^A-Za-z0-9]', '', 'g')) = ${normalizeInviteCode(code)}
+      AND i.code_verified_at > now() - make_interval(mins => ${VERIFY_MINUTES})
     RETURNING a.id`;
   if (rows.length) return "ok";
   const [exists] = await sql`SELECT 1 FROM attempts WHERE id = ${attemptId}::uuid`;
-  return exists ? "wrong_code" : "not_found";
+  return exists ? "not_verified" : "not_found";
+}
+
+// Company of an attempt (for the per-company try limit).
+export async function companyOfAttempt(attemptId: string): Promise<string | null> {
+  if (!isUuid(attemptId)) return null;
+  const [row] = await db()<{ id: string }[]>`
+    SELECT t.company_id AS id FROM attempts a JOIN tests t ON t.id = a.test_id WHERE a.id = ${attemptId}::uuid`;
+  return row?.id ?? null;
 }
 
 // Recruiter's next step after the mini-interview: request contact details,

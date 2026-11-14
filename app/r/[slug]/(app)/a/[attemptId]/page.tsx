@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { Check, Flag, TriangleAlert } from "lucide-react";
 import { ActionBar } from "@/components/ActionBar";
 import { AutoRefresh } from "@/components/AutoRefresh";
-import { CandidateCode, CandidateStatusProvider, DetailTopBar } from "@/components/CandidateStatus";
+import { CandidateStatusProvider, DetailTopBar } from "@/components/CandidateStatus";
 import { FlagRow } from "@/components/Flags";
 import { TaskNotes } from "@/components/TaskNotes";
 import { AvatarTile } from "@/components/ui/ListRow";
@@ -26,7 +26,8 @@ export default async function CandidatePage(props: PageProps<"/r/[slug]/a/[attem
   const flagCount = tasks.reduce((sum, t) => sum + t.flags.length, 0);
 
   return (
-    <CandidateStatusProvider key={attempt.id} attemptId={attempt.id} status={attempt.status} code={attempt.invite_code} stage={attempt.stage}>
+    <CandidateStatusProvider key={attempt.id} attemptId={attempt.id} status={attempt.status}
+      invited={attempt.invited} verified={attempt.code_verified} stage={attempt.stage}>
       <AutoRefresh seconds={10} />
       <DetailTopBar backHref={`/r/${slug}`} name={attempt.avatar_name} />
 
@@ -40,7 +41,6 @@ export default async function CandidatePage(props: PageProps<"/r/[slug]/a/[attem
               {joinSep([LANG_SHORT[attempt.lang] ?? attempt.lang, `limit ${TIME_LIMIT_MINUTES} min`])}
             </span>
           </div>
-          <CandidateCode />
           {attempt.contact && (
             <div className="flex flex-col gap-1 rounded-tile bg-bg p-3">
               <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted">{joinSep(["Contact", "shared by the candidate"])}</p>

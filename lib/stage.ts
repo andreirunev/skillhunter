@@ -30,5 +30,7 @@ export function checkContact(raw: { full_name?: unknown; phone?: unknown; email?
   return { full_name, phone, email };
 }
 
-// Booth invite codes look like "KX-47"; typed with or without the dash.
-export const normalizeInviteCode = (raw: string) => raw.toUpperCase().replace(/[^A-Z0-9]/g, "");
+// Interview codes: 4 chars without look-alikes (no 0/O, 1/I/L), e.g. "7K4M".
+// Typed in any case, spaces and dashes ignored.
+export const normalizeInviteCode = (raw: string) => raw.toUpperCase().replace(/[\s-]/g, "");
+export const isInviteCode = (code: string) => /^[ABCDEFGHJKMNPQRSTUVWXYZ2-9]{4}$/.test(code);

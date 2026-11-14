@@ -3,32 +3,29 @@
 import Link from "next/link";
 import { createContext, useContext, useState, type ReactNode } from "react";
 import { ChevronLeft } from "lucide-react";
-import { BigCode } from "@/components/ui/BigCode";
 import { StatusPill } from "@/components/ui/StatusPill";
 import type { Status } from "@/lib/recruiter";
 import type { Stage } from "@/lib/stage";
 
-type Saved = { status: Status; code: string | null; stage: Stage };
+// "invited" and "verified" only: the interview code never reaches the recruiter.
+type Saved = { status: Status; invited: boolean; verified: boolean; stage: Stage };
 type Value = Saved & { attemptId: string; setSaved: (patch: Partial<Saved>) => void };
 
 const Ctx = createContext<Value | null>(null);
 
-// The candidate's current label, booth code and booth-flow stage, shared by
-// the top bar pill and the action bar, so a saved decision shows at once
-// without a reload. A server refresh (e.g. the candidate shared details)
-// replaces it. Keyed by attempt id in the parent.
-export function CandidateStatusProvider({ attemptId, status, code, stage, children }: {
+// The candidate's current label, invitation, code check and booth-flow
+// stage, shared by the top bar pill and the action bar, so a saved decision
+// shows at once without a reload. A server refresh (e.g. the candidate shared
+// details) replaces it. Keyed by attempt id in the parent.
+export function CandidateStatusProvider({ attemptId, status, invited, verified, stage, children }: Saved & {
   attemptId: string;
-  status: Status;
-  code: string | null;
-  stage: Stage;
   children: ReactNode;
 }) {
-  const [saved, setSavedState] = useState<Saved>({ status, code, stage });
-  const [server, setServer] = useState<Saved>({ status, code, stage });
-  if (server.status !== status || server.code !== code || server.stage !== stage) {
-    setServer({ status, code, stage });
-    setSavedState({ status, code, stage });
+  const [saved, setSavedState] = useState<Saved>({ status, invited, verified, stage });
+  const [server, setServer] = useState<Saved>({ status, invited, verified, stage });
+  if (server.status !== status || server.invited !== invited || server.verified !== verified || server.stage !== stage) {
+    setServer({ status, invited, verified, stage });
+    setSavedState({ status, invited, verified, stage });
   }
   const setSaved = (patch: Partial<Saved>) => setSavedState((s) => ({ ...s, ...patch }));
   return <Ctx.Provider value={{ ...saved, attemptId, setSaved }}>{children}</Ctx.Provider>;
@@ -38,19 +35,6 @@ export function useCandidateStatus() {
   const value = useContext(Ctx);
   if (!value) throw new Error("useCandidateStatus needs CandidateStatusProvider");
   return value;
-}
-
-// The booth code once invited, so the recruiter can match it with the
-// candidate's phone. Shows as soon as "Invite" saves.
-export function CandidateCode() {
-  const { code } = useCandidateStatus();
-  if (!code) return null;
-  return (
-    <div className="flex flex-col gap-1.5">
-      <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted">Candidate code</p>
-      <BigCode code={code} />
-    </div>
-  );
 }
 
 // Sticky top bar: Back, name, current label.

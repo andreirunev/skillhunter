@@ -59,7 +59,7 @@ export function Waiting({ attemptId, booth, company, timeUp, initial }: Props) {
         <h1 className="text-[28px] font-bold leading-tight tracking-tight">{t(lang, "invitedTitle", { booth })}</h1>
         <section className="flex flex-col items-center rounded-card border border-border bg-card p-5 text-center">
           <p className="text-[13px] font-semibold text-muted">{t(lang, "showCode")}</p>
-          <p className="mt-2 font-mono text-5xl font-bold tracking-widest">{view.code}</p>
+          <p className="mt-2 pl-[0.35em] font-mono text-5xl font-bold tracking-[0.35em]">{view.code}</p>
         </section>
         <ol className="flex flex-col gap-3 rounded-card border border-border bg-card p-4">
           {STEPS.map((key, i) => (

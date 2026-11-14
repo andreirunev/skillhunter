@@ -9,8 +9,9 @@ const randomString = (length: number) =>
 // Single-use QR token (about 40 bits): enough to be unguessable at a fair.
 export const makeToken = () => randomString(8);
 
-// Short code the candidate shows at the booth, e.g. "KX-47".
-export const makeInviteCode = () => `${randomString(2)}-${randomInt(10, 100)}`;
+// Interview code, e.g. "7K4M": only the candidate's phone shows it, and the
+// recruiter types it to prove the person at the booth owns the attempt.
+export const makeInviteCode = () => randomString(4);
 
 // Printed booth codes = single-use tokens typed at /join.
 export const PRINTED_CODE_DAYS = 7;

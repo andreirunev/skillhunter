@@ -99,6 +99,23 @@ CREATE TABLE IF NOT EXISTS invitations (
   sent_at    timestamptz NOT NULL DEFAULT now()
 );
 
+-- Interview code: 4 chars without look-alikes, shown only on the candidate's
+-- phone, unique per company (checked by the app). Old "AB-12" codes get a
+-- fresh one. code_verified_at = the recruiter typed it (valid 30 minutes).
+UPDATE invitations SET code = (
+  SELECT string_agg(substr('ABCDEFGHJKMNPQRSTUVWXYZ23456789', 1 + floor(random() * 31)::int, 1), '')
+  FROM generate_series(1, 4 + 0 * length(invitations.code)))
+WHERE code !~ '^[ABCDEFGHJKMNPQRSTUVWXYZ2-9]{4}$';
+ALTER TABLE invitations ADD COLUMN IF NOT EXISTS code_verified_at timestamptz;
+
+-- Wrong interview-code tries per company, for the 10-per-minute limit.
+-- Company and time only; pruned after 10 minutes.
+CREATE TABLE IF NOT EXISTS code_misses (
+  company_id uuid NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  at         timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS code_misses_by_company ON code_misses (company_id, at);
+
 CREATE TABLE IF NOT EXISTS recruiter_notes (
   attempt_id uuid NOT NULL REFERENCES attempts(id) ON DELETE CASCADE,
   task_id    uuid NOT NULL REFERENCES test_tasks(id) ON DELETE CASCADE,
@@ -122,6 +139,7 @@ ALTER TABLE qr_tokens       ENABLE ROW LEVEL SECURITY;
 ALTER TABLE answers         ENABLE ROW LEVEL SECURITY;
 ALTER TABLE invitations     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE recruiter_notes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE code_misses     ENABLE ROW LEVEL SECURITY;
 `;
 
 // One small pool per server process, kept on globalThis so dev reloads reuse it.
