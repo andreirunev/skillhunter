@@ -7,7 +7,7 @@ import {
 import { Check, GripVertical, Plus, Trash2, TriangleAlert, X } from "lucide-react";
 import { ChoiceInput, OrderInput } from "@/components/TaskInputs";
 import { PanelCard } from "@/components/SimInputs";
-import { Spinner } from "@/components/Spinner";
+import { FlagMini } from "@/components/FlagLoader";
 import { NEW_TASK_FORMATS, TaskTypeCards } from "@/components/TaskTypeCards";
 import { joinSep } from "@/components/ui/Sep";
 import { toast } from "@/components/ui/Toast";
@@ -292,7 +292,7 @@ export function Builder({ slug, companyName, lang, templates, library, contestId
           </p>
           <button type="button" onClick={publish} disabled={pending || rows.length === 0} aria-busy={pending}
             className="ui-btn ui-btn-primary min-h-12 text-base">
-            {pending ? <><Spinner />{tr("saving")}</> : tr("save")}
+            {pending ? <><FlagMini />{tr("saving")}</> : tr("save")}
           </button>
         </div>
       </div>

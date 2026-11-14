@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import Link from "next/link";
+import Link from "@/components/TransitionLink";
 import { CircleDot, Handshake, Lock, Send, ThumbsUp } from "lucide-react";
 import { FilterPills } from "@/components/ui/FilterPills";
 import { AvatarTile, ListRow } from "@/components/ui/ListRow";

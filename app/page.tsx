@@ -1,24 +1,31 @@
-import type { CSSProperties, ReactNode } from "react";
+import type { CSSProperties } from "react";
 import type { Metadata, Viewport } from "next";
-import Link from "next/link";
-import { Space_Grotesk } from "next/font/google";
+import { Bricolage_Grotesque } from "next/font/google";
 import { joinSep } from "@/components/ui/Sep";
 import { EspooMap } from "./EspooMap";
+import { Intro } from "./Intro";
+import { CandidateStart, RecruiterStart } from "./LandingForms";
 
-// Headline face for this page only; body text is the system UI font.
-const display = Space_Grotesk({ subsets: ["latin", "latin-ext"], variable: "--font-space-grotesk" });
+// Headline and button face for this page only (variable, used at 600-800);
+// body text and inputs stay on the system UI font.
+const display = Bricolage_Grotesque({
+  subsets: ["latin", "latin-ext"],
+  variable: "--font-bricolage",
+  display: "swap",
+  preload: true,
+});
 
 export const metadata: Metadata = {
   title: "SkillScan - skills over CVs at Espoo recruitment events",
   description: "Short practical tasks at the booth. Recruiters decide who to talk to.",
 };
 
-export const viewport: Viewport = { themeColor: "#f4f1ea" };
+export const viewport: Viewport = { themeColor: "#003580" };
 
 const COL = "mx-auto w-full max-w-[1080px] px-5 md:px-8";
 
-// Entrance: fade + 8px rise; block n starts 60ms after block n-1. Off under
-// prefers-reduced-motion (globals.css also stops every animation there).
+// Entrance for the sections below the fold: fade + 8px rise; block n starts
+// 60ms after block n-1. Off under prefers-reduced-motion.
 const ENTER = "motion-safe:animate-enter";
 const delay = (n: number): CSSProperties => ({ animationDelay: `${n * 60}ms` });
 
@@ -36,42 +43,54 @@ const PRINCIPLES = [
   "Data deleted after the event.",
 ];
 
-// Landing page: who SkillScan is for and the two doors in (candidate -> /join,
-// recruiter -> /r). Static; no data, no cookies.
+// Landing page, laid out like the flag: the blue top half is the candidate
+// door (booth code), the white half below is the recruiter door (PIN), with
+// the tab of the cross on the seam. The intro draws that cross on the first
+// visit of the session. No data, no cookies until a form is sent.
 export default function Home() {
   return (
     <div data-landing
-      className={`${display.variable} flex min-h-dvh flex-1 flex-col overflow-x-clip [&_:focus-visible]:outline-2 [&_:focus-visible]:outline-offset-2 [&_:focus-visible]:outline-ink [&_:focus-visible]:outline-solid`}>
-      <header className={ENTER} style={delay(0)}>
-        <div className={`${COL} flex items-center justify-between py-5`}>
-          <p className="font-display text-xl font-bold tracking-tight">SkillScan</p>
-          <span className="border border-ink/30 px-2 py-0.5 text-[13px] font-medium text-ink/75">Demo</span>
-        </div>
-      </header>
-
+      className={`${display.variable} flex min-h-dvh flex-1 flex-col overflow-x-clip [&_:focus-visible]:outline-2 [&_:focus-visible]:outline-offset-2 [&_:focus-visible]:outline-solid [&_:focus-visible]:outline-ink`}>
+      <Intro />
       <main className="flex flex-col">
-        <section className="relative overflow-hidden">
-          <EspooMap className="pointer-events-none absolute -right-12 top-0 h-full w-auto text-ink opacity-[0.16] md:right-8 md:opacity-25" />
-          <div className={`${COL} ${ENTER} relative pb-12 pt-8 md:pb-20 md:pt-16`} style={delay(1)}>
-            <p className="text-sm font-medium text-ink/75">{joinSep(["City of Espoo", "Junction 2026"])}</p>
-            <h1 className="mt-4 text-balance font-display text-[clamp(2.75rem,11vw,6rem)] font-bold leading-[0.95] tracking-[-0.035em]">
-              Skills over CVs at job fairs
-            </h1>
-            <p className="mt-6 max-w-[30ch] text-lg leading-snug text-ink/75 md:text-xl">
-              Short practical tasks at the booth. Recruiters decide who to talk to.
-            </p>
+        <section data-hero aria-labelledby="candidate-title"
+          className="relative min-h-(--seam) bg-flag-blue text-white [&_:focus-visible]:outline-white!">
+          <EspooMap className="pointer-events-none absolute -right-16 top-0 h-full w-auto text-white opacity-[0.14] md:right-8 md:opacity-20" />
+          <div className={`${COL} relative flex min-h-(--seam) flex-col pb-10 pt-5 md:pb-14`}>
+            <header className="flex items-center justify-between">
+              <p className="font-display text-xl font-bold tracking-tight">SkillScan</p>
+              <span className="border border-white/40 px-2 py-0.5 text-[13px] font-medium text-white/85">Demo</span>
+            </header>
+            <div className="mt-auto pt-10">
+              <p className="text-sm font-medium text-white/75">{joinSep(["City of Espoo", "Junction 2026"])}</p>
+              <h1 className="mt-3 max-w-[14ch] text-balance font-display text-[clamp(40px,8vw,96px)] font-extrabold leading-[0.95] tracking-[-0.03em]">
+                Skills over CVs at job fairs
+              </h1>
+              <p className="mt-5 hidden max-w-[34ch] text-xl leading-snug text-white/80 md:block">
+                Short practical tasks at the booth. Recruiters decide who to talk to.
+              </p>
+              <div className="mt-8 max-w-[560px]">
+                <h2 id="candidate-title" className="font-display text-xl font-bold tracking-tight">{"I'm a candidate"}</h2>
+                <p className="mb-3 mt-1 text-[15px] leading-snug text-white/80">
+                  Type the code from your booth card. No name or CV needed.
+                </p>
+                <CandidateStart />
+              </div>
+            </div>
           </div>
+          <span className="seam-tab" aria-hidden />
         </section>
 
-        <section aria-label="Choose your role" className={`${COL} grid gap-4 md:grid-cols-2 md:gap-6`}>
-          <RoleCard n={2} title={"I'm a candidate"} href="/join" action="Enter booth code" primary
-            next="Type the code from your booth card. No name or CV needed.">
-            Get a booth code, take a 10-minute test, talk to the recruiter at the stand.
-          </RoleCard>
-          <RoleCard n={3} title={"I'm a recruiter"} href="/r" action="Recruiter PIN"
-            next="Enter the PIN you got from the fair organiser.">
-            See anonymous answers, invite the best-fitting people to a short interview. You decide.
-          </RoleCard>
+        <section aria-labelledby="recruiter-title" className={`${COL} pt-20 md:pt-24`}>
+          <div className="max-w-[560px]">
+            <h2 id="recruiter-title" className="font-display text-[28px] font-bold leading-tight tracking-[-0.02em] md:text-[36px]">
+              {"I'm a recruiter"}
+            </h2>
+            <p className="mb-5 mt-2 text-[17px] leading-snug text-ink/75">
+              See anonymous answers, invite people to a short talk at your booth. You decide. Use the PIN you got from the fair organiser.
+            </p>
+            <RecruiterStart />
+          </div>
         </section>
 
         <section className={`${COL} ${ENTER} pt-16 md:pt-24`} style={delay(4)}>
@@ -111,33 +130,6 @@ export default function Home() {
           </p>
         </div>
       </footer>
-    </div>
-  );
-}
-
-// One door in: what you do, what happens right after, and the one button.
-function RoleCard({ n, title, href, action, primary = false, next, children }: {
-  n: number;
-  title: string;
-  href: string;
-  action: string;
-  primary?: boolean;
-  next: string;
-  children: ReactNode;
-}) {
-  return (
-    <div style={delay(n)} className={`${ENTER} flex flex-col border border-ink/20 bg-sheet p-5 md:p-7`}>
-      <h2 className="font-display text-[28px] font-bold leading-tight tracking-tight md:text-[32px]">{title}</h2>
-      <p className="mb-6 mt-2 text-[17px] leading-snug text-ink/75">{children}</p>
-      <p className="mt-auto border-t border-ink/15 pt-3 text-sm leading-snug text-ink/75">
-        <span className="font-semibold text-ink">Next:</span> {next}
-      </p>
-      <Link href={href}
-        className={`tap mt-4 flex min-h-14 items-center justify-center border px-5 text-base font-semibold ${
-          primary ? "border-espoo bg-espoo text-white hover:bg-espoo/90" : "border-ink text-ink hover:bg-ink/5"
-        }`}>
-        {action}
-      </Link>
     </div>
   );
 }

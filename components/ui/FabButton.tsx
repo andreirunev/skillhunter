@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/TransitionLink";
 import { Plus } from "lucide-react";
 
 // Floating round "+" for the screen's one create action, above the tab bar.

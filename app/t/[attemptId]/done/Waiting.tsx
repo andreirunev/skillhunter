@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState, type HTMLAttributes } from "react";
 import { useLang } from "@/components/CandidateShell";
-import { Spinner } from "@/components/Spinner";
+import { FlagMini } from "@/components/FlagLoader";
 import { t, type Lang } from "@/lib/i18n";
 import { checkContact, isStage, type Stage } from "@/lib/stage";
 
@@ -167,13 +167,13 @@ function ContactForm({ attemptId, company, lang, onAnswered, onStale }: {
         </label>
         <button type="submit" disabled={!valid || busy !== null} aria-busy={busy === "send"}
           className="ui-btn ui-btn-primary min-h-12 text-base">
-          {busy === "send" ? <><Spinner />{t(lang, "saving")}</> : t(lang, "send")}
+          {busy === "send" ? <><FlagMini />{t(lang, "saving")}</> : t(lang, "send")}
         </button>
         {error && <p role="alert" className="text-sm font-semibold text-bad">{t(lang, "saveError")}</p>}
       </form>
       <button type="button" onClick={() => post({ decline: true }, "decline")} disabled={busy !== null}
         className="inline-flex min-h-11 items-center gap-2 self-center px-4 text-sm font-semibold text-muted underline underline-offset-4">
-        {busy === "decline" && <Spinner />}{t(lang, "noThanks")}
+        {busy === "decline" && <FlagMini />}{t(lang, "noThanks")}
       </button>
     </main>
   );

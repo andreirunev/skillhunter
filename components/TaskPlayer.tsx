@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useFlagNav } from "@/components/TransitionProvider";
 import { useLang } from "@/components/CandidateShell";
 import { SimTaskView } from "@/components/SimInputs";
-import { Spinner } from "@/components/Spinner";
+import { FlagMini } from "@/components/FlagLoader";
 import type { Answer } from "@/lib/tasks";
 import { isAnsweredSim, type PlayerTask, type QuickPayload } from "@/lib/sim";
 import { t } from "@/lib/i18n";
@@ -18,7 +18,7 @@ const clock = (ms: number) => {
 };
 
 export function TaskPlayer({ attempt, tasks, saved }: Props) {
-  const router = useRouter();
+  const router = useFlagNav();
   const lang = useLang();
   const savedById = Object.fromEntries(saved.map((s) => [s.task_id, s]));
 
@@ -160,7 +160,7 @@ export function TaskPlayer({ attempt, tasks, saved }: Props) {
             </button>
             <button type="button" onClick={() => goNext(answered ? (value as Answer) : null)} disabled={busy} aria-busy={busy}
               className={`ui-btn min-h-14 text-base ${answered ? "ui-btn-primary" : "ui-btn-secondary"}`}>
-              {busy ? <><Spinner />{t(lang, "saving")}</> : forwardLabel}
+              {busy ? <><FlagMini />{t(lang, "saving")}</> : forwardLabel}
             </button>
           </div>
         </div>

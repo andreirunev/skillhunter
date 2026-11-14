@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { TransitionProvider } from "@/components/TransitionProvider";
+import { MOTION_SCRIPT } from "@/lib/motion";
 import { THEME_SCRIPT } from "@/lib/theme";
 import "./globals.css";
 
@@ -34,9 +36,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <head>
         {/* Sets data-theme before first paint; see lib/theme.ts. */}
         <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+        {/* Starts covered after a form POST, or with the landing intro; see lib/motion.ts. */}
+        <script dangerouslySetInnerHTML={{ __html: MOTION_SCRIPT }} />
       </head>
       <body className="min-h-full flex flex-col">
-        {children}
+        <TransitionProvider>{children}</TransitionProvider>
       </body>
     </html>
   );

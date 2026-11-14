@@ -1,16 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useFlagNav } from "@/components/TransitionProvider";
 import { KeyRound } from "lucide-react";
-import { Spinner } from "@/components/Spinner";
+import { FlagMini } from "@/components/FlagLoader";
 import { isInviteCode, normalizeInviteCode } from "@/lib/stage";
 
 // "Find by code": the recruiter types the 4 characters from the candidate's
 // phone. The server looks the code up within this company and, on a match,
 // the card opens already verified. The code itself is never shown here.
 export function FindByCode({ slug, autoFocus = false }: { slug: string; autoFocus?: boolean }) {
-  const router = useRouter();
+  const router = useFlagNav();
   const [typed, setTyped] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -48,7 +48,7 @@ export function FindByCode({ slug, autoFocus = false }: { slug: string; autoFocu
           aria-label="Find a candidate by the code on their phone" placeholder="Find by code" maxLength={9}
           autoComplete="off" autoCorrect="off" autoCapitalize="characters" spellCheck={false} enterKeyHint="search"
           className="min-h-12 w-full rounded-btn border border-border bg-card pl-9 pr-10 text-base font-semibold tracking-[0.12em] text-fg outline-none placeholder:font-normal placeholder:tracking-normal placeholder:text-muted focus:border-fg/40" />
-        {busy && <span className="absolute right-3 text-muted"><Spinner /></span>}
+        {busy && <span className="absolute right-3 text-muted"><FlagMini /></span>}
       </label>
       {error && <p role="alert" className="text-sm font-semibold text-bad">{error}</p>}
     </form>

@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+import Link from "@/components/TransitionLink";
+import { useFlagNav } from "@/components/TransitionProvider";
 import { useLang } from "@/components/CandidateShell";
-import { Spinner } from "@/components/Spinner";
+import { FlagMini } from "@/components/FlagLoader";
 import { AvatarTile } from "@/components/ui/ListRow";
 import { joinSep } from "@/components/ui/Sep";
 import type { Avatar } from "@/lib/avatar";
@@ -23,7 +23,7 @@ type Props = {
 // Start screen. The avatar was assigned when the code was entered and cannot
 // be changed here. Pressing Start starts the clock on the server.
 export function Activate({ token, state, avatar, taskCount, minutes, limitMinutes, englishRequired }: Props) {
-  const router = useRouter();
+  const router = useFlagNav();
   const lang = useLang();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -81,7 +81,7 @@ export function Activate({ token, state, avatar, taskCount, minutes, limitMinute
       {error && <p className="text-center text-sm font-medium text-bad" role="alert">{error}</p>}
       <button type="button" onClick={start} disabled={busy} aria-busy={busy}
         className="ui-btn ui-btn-primary min-h-14 w-full text-lg">
-        {busy ? <><Spinner />{t(lang, "saving")}</> : t(lang, "start")}
+        {busy ? <><FlagMini />{t(lang, "saving")}</> : t(lang, "start")}
       </button>
     </main>
   );

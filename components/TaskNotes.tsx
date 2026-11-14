@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { MessageCircleQuestion } from "lucide-react";
-import { Spinner } from "@/components/Spinner";
+import { FlagMini } from "@/components/FlagLoader";
 import { toast } from "@/components/ui/Toast";
 
 // Follow-up at the booth: suggested questions, an "asked" tick and a short note.
@@ -61,7 +61,7 @@ export function TaskNotes({ attemptId, taskId, questions, initialAsked, initialN
       />
       {saved !== "idle" && (
         <p className={`flex items-center gap-1.5 text-xs ${saved === "error" ? "text-bad" : "text-muted"}`}>
-          {saved === "saving" ? <><Spinner />Saving…</> : "Could not save"}
+          {saved === "saving" ? <><FlagMini />Saving…</> : "Could not save"}
         </p>
       )}
     </div>

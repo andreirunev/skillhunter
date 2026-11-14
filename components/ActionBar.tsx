@@ -4,7 +4,7 @@ import { useCallback, useState, type FormEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { Check, CircleCheck, Ellipsis } from "lucide-react";
 import { useCandidateStatus } from "@/components/CandidateStatus";
-import { Spinner } from "@/components/Spinner";
+import { FlagMini } from "@/components/FlagLoader";
 import { ActionSheet } from "@/components/ui/ActionSheet";
 import { joinSep } from "@/components/ui/Sep";
 import { STATUS_TEXT } from "@/components/ui/StatusPill";
@@ -144,12 +144,12 @@ export function ActionBar() {
     if (data && isRecruiterStage(data.stage)) setSaved({ stage: data.stage });
   }
 
-  const label = (kind: Busy, text: ReactNode) => (busy === kind ? <><Spinner />Saving…</> : text);
+  const label = (kind: Busy, text: ReactNode) => (busy === kind ? <><FlagMini />Saving…</> : text);
   const moreButton = (
     <button type="button" onClick={() => setStatusSheet(true)} disabled={busy !== null}
       aria-haspopup="dialog" aria-label="Set status" aria-busy={busy === "status"}
       className="ui-btn ui-btn-secondary min-h-12 w-12 px-0">
-      {busy === "status" ? <Spinner /> : <Ellipsis className="size-5" aria-hidden />}
+      {busy === "status" ? <FlagMini /> : <Ellipsis className="size-5" aria-hidden />}
     </button>
   );
 
@@ -195,7 +195,7 @@ export function ActionBar() {
           className="min-h-12 w-full min-w-0 rounded-btn border border-border bg-card px-3 text-base font-semibold tracking-[0.12em] text-fg outline-none placeholder:font-normal placeholder:tracking-normal placeholder:text-muted focus:border-fg/40" />
         <button type="button" disabled aria-busy={busy === "verify"}
           className="ui-btn ui-btn-primary min-h-12 px-4 text-base">
-          {busy === "verify" ? <Spinner /> : "Start"}
+          {busy === "verify" ? <FlagMini /> : "Start"}
         </button>
         {moreButton}
       </form>

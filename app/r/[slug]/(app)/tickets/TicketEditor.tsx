@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
-import { Spinner } from "@/components/Spinner";
+import { FlagMini } from "@/components/FlagLoader";
 import { Ticket } from "@/components/Ticket";
 import { SectionLabel } from "@/components/ui/ScreenTitle";
 import { toast } from "@/components/ui/Toast";
@@ -71,7 +71,7 @@ export function TicketEditor({ slug, initial, defaults, tasks, sample }: {
             Use defaults
           </button>
           <button type="submit" disabled={pending} aria-busy={pending} className="ui-btn ui-btn-primary min-h-12 text-base">
-            {pending ? <><Spinner />Saving…</> : "Save"}
+            {pending ? <><FlagMini />Saving…</> : "Save"}
           </button>
         </div>
       </form>

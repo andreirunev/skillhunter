@@ -1,10 +1,10 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+import Link from "@/components/TransitionLink";
+import { useFlagNav } from "@/components/TransitionProvider";
 import { ChevronRight, CircleCheck, CircleDot, Printer } from "lucide-react";
-import { Spinner } from "@/components/Spinner";
+import { FlagMini } from "@/components/FlagLoader";
 import { SectionLabel } from "@/components/ui/ScreenTitle";
 import { joinSep } from "@/components/ui/Sep";
 import { StatCard } from "@/components/ui/StatCard";
@@ -35,7 +35,7 @@ export function CodesView({ slug, free, taken, codes, contests, preselect, conte
   days: number;
   highlight: boolean;
 }) {
-  const router = useRouter();
+  const router = useFlagNav();
   const [state, formAction, pending] = useActionState(createCodes, { error: "", created: 0, batch: null });
   const [count, setCount] = useState("10");
   const [contest, setContest] = useState(preselect);
@@ -98,7 +98,7 @@ export function CodesView({ slug, free, taken, codes, contests, preselect, conte
               : `Choose 1 to ${max}.`}
           </p>
           <button type="submit" disabled={pending || !valid || !contest} aria-busy={pending} className="ui-btn ui-btn-primary min-h-12 w-full text-base">
-            {pending ? <><Spinner />Creating…</> : <><Printer className="size-4" aria-hidden />Create and print</>}
+            {pending ? <><FlagMini />Creating…</> : <><Printer className="size-4" aria-hidden />Create and print</>}
           </button>
           <p aria-live="polite" className={`text-[13px] ${state.error ? "font-medium text-bad" : "text-muted"}`}>
             {state.error || `Each code works once and expires after ${days} days.`}

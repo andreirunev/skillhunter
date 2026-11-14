@@ -1,5 +1,5 @@
 import type { Viewport } from "next";
-import Link from "next/link";
+import Link from "@/components/TransitionLink";
 import { ClipboardList, KeyRound } from "lucide-react";
 import { notFound } from "next/navigation";
 import { BottomTabs } from "@/components/ui/BottomTabs";

@@ -2,7 +2,7 @@
 
 import { useCallback, useState, useTransition } from "react";
 import { RotateCcw } from "lucide-react";
-import { Spinner } from "@/components/Spinner";
+import { FlagMini } from "@/components/FlagLoader";
 import { ActionSheet } from "@/components/ui/ActionSheet";
 import { toast } from "@/components/ui/Toast";
 import { resetDemo } from "../actions";
@@ -26,7 +26,7 @@ export function ResetDemo() {
     <>
       <button type="button" onClick={() => setOpen(true)} disabled={pending} aria-busy={pending}
         className="ui-btn ui-btn-secondary text-bad">
-        {pending ? <><Spinner />Resetting…</> : <><RotateCcw className="size-4" aria-hidden />Reset demo data</>}
+        {pending ? <><FlagMini />Resetting…</> : <><RotateCcw className="size-4" aria-hidden />Reset demo data</>}
       </button>
       <ActionSheet open={open} title="Reset all demo booths?" onClose={close}>
         <p className="mb-1 text-sm text-muted">Deletes every candidate, note and booth code, then loads the synthetic demo data again.</p>

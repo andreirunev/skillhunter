@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import Link from "next/link";
+import Link from "@/components/TransitionLink";
 import { joinSep } from "@/components/ui/Sep";
 
 // Screen-only bar above the sheets (hidden when printing). With ?auto=1 (from

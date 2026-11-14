@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/TransitionLink";
 import { notFound } from "next/navigation";
 import { ArrowRight, Plus } from "lucide-react";
 import { RecruiterLang } from "@/components/RecruiterLang";

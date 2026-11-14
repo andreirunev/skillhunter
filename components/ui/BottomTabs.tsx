@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link from "@/components/TransitionLink";
 import { usePathname } from "next/navigation";
 import { ChartColumn, ClipboardList, QrCode, Users, type LucideIcon } from "lucide-react";
 

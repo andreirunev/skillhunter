@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/TransitionLink";
 import type { ReactNode } from "react";
 
 // Large title top-left, one optional help link top-right.

@@ -1,14 +1,26 @@
 "use client";
 
-import { useActionState } from "react";
-import { Spinner } from "@/components/Spinner";
+import { useActionState, useEffect } from "react";
+import { FlagMini } from "@/components/FlagLoader";
+import { useFlagNav } from "@/components/TransitionProvider";
 import { checkPin } from "./actions";
 
-export function PinForm() {
+// checkPin redirects on a right PIN, so Next.js navigates by itself: the wipe
+// covers on submit and retracts again if the PIN comes back wrong.
+export function usePinAction() {
+  const nav = useFlagNav();
   const [state, formAction, pending] = useActionState(checkPin, { error: "" });
+  useEffect(() => {
+    if (state.error) nav.cancel();
+  }, [state, nav]);
+  return { error: state.error, formAction, pending, onSubmit: () => nav.cover() };
+}
+
+export function PinForm() {
+  const { error, formAction, pending, onSubmit } = usePinAction();
 
   return (
-    <form action={formAction} className="flex flex-col gap-3">
+    <form action={formAction} onSubmit={onSubmit} className="flex flex-col gap-3">
       <label htmlFor="pin" className="text-sm font-semibold text-slate-700">Company PIN</label>
       <input
         id="pin"
@@ -18,18 +30,18 @@ export function PinForm() {
         autoCapitalize="none"
         autoFocus
         required
-        aria-invalid={Boolean(state.error)}
+        aria-invalid={Boolean(error)}
         aria-describedby="pin-error"
         className="min-h-12 border border-slate-400 bg-white px-4 text-lg outline-none focus:border-slate-900"
       />
-      <p id="pin-error" aria-live="polite" className="min-h-5 text-sm font-medium text-red-700">{state.error}</p>
+      <p id="pin-error" aria-live="polite" className="min-h-5 text-sm font-medium text-red-700">{error}</p>
       <button
         type="submit"
         disabled={pending}
         aria-busy={pending}
         className="btn btn-primary min-h-12 text-base"
       >
-        {pending ? <><Spinner />Checking…</> : "Open my booth"}
+        {pending ? <><FlagMini />Checking…</> : "Open my booth"}
       </button>
     </form>
   );
