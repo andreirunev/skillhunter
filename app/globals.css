@@ -100,6 +100,32 @@
   }
 }
 
+/* Landing page (/) identity, scoped to [data-landing]: warm paper, deep ink,
+   one Espoo blue-green accent; Space Grotesk headlines (next/font variable set
+   on the page), system UI body. Light only. */
+@theme inline {
+  --color-paper: var(--paper);
+  --color-sheet: var(--sheet);
+  --color-ink: var(--ink);
+  --color-espoo: var(--espoo);
+  --font-display: var(--font-space-grotesk), ui-sans-serif, system-ui, sans-serif;
+  /* Entrance: fade + 8px rise, 200ms; blocks set their own delay. */
+  --animate-enter: rise 200ms ease-out both;
+}
+[data-landing] {
+  --paper: #f4f1ea;
+  --sheet: #fbfaf7;
+  --ink: #14213d;
+  --espoo: #0f766e;
+  color-scheme: light;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+body:has([data-landing]) {
+  background: #f4f1ea;
+}
+
 /* Design tokens for the skinned pages (recruiter + candidate), scoped to
    [data-skin] so the home page keeps its look. Light is the base set; dark
    applies when <html data-theme="dark"> (set before first paint from
