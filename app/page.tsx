@@ -11,19 +11,17 @@ export default function Home() {
       </div>
 
       <div className="flex flex-col gap-3">
-        <a
-          href="/demo/kirkas"
-          target="_blank"
-          rel="noopener"
+        <Link
+          href="/join"
           className="tap flex min-h-20 items-center gap-4 rounded-3xl bg-brand-700 px-5 text-white shadow-md shadow-brand-700/20 active:scale-[0.99]"
         >
           <span className="text-3xl" aria-hidden>🙋</span>
           <span className="flex-1">
             <span className="block text-lg font-bold">I&apos;m a candidate</span>
-            <span className="block text-sm text-white/80">Opens a fresh booth QR link, as if scanned</span>
+            <span className="block text-sm text-white/80">Enter the code from the booth</span>
           </span>
-          <span className="text-xl text-white/70" aria-hidden>↗</span>
-        </a>
+          <span className="text-xl text-white/70" aria-hidden>›</span>
+        </Link>
 
         <Link
           href="/r"

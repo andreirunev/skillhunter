@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { db } from "./db.ts";
-import { makeToken } from "./codes.ts";
+import { isCodeShape, makeToken } from "./codes.ts";
 import { computeFlags, type FlagCode } from "./flags.ts";
 import { isAnswered, matchesKey, type Answer, type AnswerKey, type TaskPayload, type TaskType } from "./tasks.ts";
 import type { Lang } from "./i18n.ts";
@@ -55,16 +55,33 @@ export async function activateToken(
   return row?.id ?? null;
 }
 
-// Demo helper: a fresh single-use token for a company's test (24 h).
-export async function createToken(slug: string): Promise<string | null> {
-  const [row] = await db()<{ token: string }[]>`
+// Fresh single-use tokens for a company's test: one per demo QR link (1 day),
+// or a batch of printed booth codes. Returns the tokens actually created.
+export async function createTokens(slug: string, count: number, days: number): Promise<string[]> {
+  const sql = db();
+  const tokens = Array.from({ length: count }, makeToken);
+  const rows = await sql<{ token: string }[]>`
+    WITH t AS (
+      SELECT t.id FROM tests t JOIN companies c ON c.id = t.company_id WHERE c.slug = ${slug} LIMIT 1
+    )
     INSERT INTO qr_tokens (token, test_id, expires_at)
-    SELECT ${makeToken()}, t.id, now() + interval '1 day'
-    FROM tests t JOIN companies c ON c.id = t.company_id
-    WHERE c.slug = ${slug}
-    LIMIT 1
+    SELECT tok, t.id, now() + ${days}::int * interval '1 day' FROM t, unnest(${sql.array(tokens)}::text[]) AS tok
+    ON CONFLICT (token) DO NOTHING
     RETURNING token`;
-  return row?.token ?? null;
+  return rows.map((r) => r.token);
+}
+
+export async function createToken(slug: string): Promise<string | null> {
+  const [token] = await createTokens(slug, 1, 1);
+  return token ?? null;
+}
+
+// For /join: only says whether a typed code can start a test. Never which company.
+export async function checkCode(code: string): Promise<"ready" | "used" | "missing"> {
+  if (!isCodeShape(code)) return "missing";
+  const [row] = await db()<{ ready: boolean }[]>`
+    SELECT status = 'new' AND expires_at > now() AS ready FROM qr_tokens WHERE token = ${code}`;
+  return !row ? "missing" : row.ready ? "ready" : "used";
 }
 
 export type PlayerAttempt = {

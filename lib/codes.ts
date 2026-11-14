@@ -11,3 +11,9 @@ export const makeToken = () => randomString(8);
 
 // Short code the candidate shows at the booth, e.g. "KX-47".
 export const makeInviteCode = () => `${randomString(2)}-${randomInt(10, 100)}`;
+
+// Printed booth codes = single-use tokens typed at /join.
+export const PRINTED_CODE_DAYS = 7;
+export const MAX_CODES_PER_BATCH = 50;
+export const normalizeCode = (raw: string) => raw.toUpperCase().replace(/[\s-]/g, "");
+export const isCodeShape = (code: string) => /^[A-Z0-9]{8}$/.test(code);

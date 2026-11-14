@@ -119,3 +119,13 @@ export async function saveNote(attemptId: string, taskId: string, asked: boolean
     RETURNING attempt_id`;
   return rows.length > 0;
 }
+
+// Printed booth codes that can still start a test, newest batch first.
+export async function listUnusedCodes(testId: string): Promise<string[]> {
+  const rows = await db()<{ token: string }[]>`
+    SELECT token FROM qr_tokens
+    WHERE test_id = ${testId}::uuid AND status = 'new' AND expires_at > now()
+    ORDER BY expires_at DESC, token
+    LIMIT 200`;
+  return rows.map((r) => r.token);
+}

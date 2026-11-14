@@ -2,8 +2,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AvatarBadge } from "@/components/Avatar";
 import { AutoRefresh } from "@/components/AutoRefresh";
+import { PrintCodes } from "@/components/PrintCodes";
 import { RecruiterHeader } from "@/components/RecruiterHeader";
-import { getCompany, isStatus, listCandidates, STATUSES } from "@/lib/recruiter";
+import { getCompany, isStatus, listCandidates, listUnusedCodes, STATUSES } from "@/lib/recruiter";
+import { MAX_CODES_PER_BATCH, PRINTED_CODE_DAYS } from "@/lib/codes";
 import { formatClock, formatDuration, LANG_SHORT, STATUS_LABELS } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -14,7 +16,7 @@ export default async function CandidatesPage(props: PageProps<"/r/[slug]">) {
   const company = await getCompany(slug);
   if (!company) notFound();
 
-  const all = await listCandidates(company.test_id);
+  const [all, codes] = await Promise.all([listCandidates(company.test_id), listUnusedCodes(company.test_id)]);
   const filter = isStatus(status) ? status : null;
   const shown = filter ? all.filter((c) => c.status === filter) : all;
   const counts = Object.fromEntries(STATUSES.map((s) => [s, all.filter((c) => c.status === s).length]));
@@ -30,6 +32,8 @@ export default async function CandidatesPage(props: PageProps<"/r/[slug]">) {
           <span className="font-semibold text-slate-900">{finished}</span> finished ·{" "}
           {company.task_count} tasks, ≈ {Math.max(1, Math.round(company.expected_sec / 60))} min
         </p>
+
+        <PrintCodes slug={slug} codes={codes} max={MAX_CODES_PER_BATCH} days={PRINTED_CODE_DAYS} />
 
         <nav className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-1" aria-label="Filter by status">
           <FilterChip href={`/r/${slug}`} active={!filter} label="All" count={all.length} />

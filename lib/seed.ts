@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type postgres from "postgres";
 import { makeAvatar } from "./avatar.ts";
-import { makeInviteCode } from "./codes.ts";
+import { makeInviteCode, makeToken, PRINTED_CODE_DAYS } from "./codes.ts";
 import { computeFlags } from "./flags.ts";
 import { PACKS, libraryTask } from "./library.ts";
 import { matchesKey, type Answer, type TaskDef } from "./tasks.ts";
@@ -16,6 +16,9 @@ export const DEMO_COMPANIES = [
 
 // Each demo test = the company's sector pack + three general tasks.
 const GENERAL_MIX = ["gen-pattern", "gen-apples", "gen-tea"];
+
+// Unused printed booth codes kept per company, so /join works in the demo.
+const DEMO_CODES = 5;
 
 // Synthetic candidates per company; statuses are pretend recruiter decisions.
 const CANDIDATE_STATUSES = ["new", "invited", "good_fit", "needs_review", "new", "new", "not_now", "new"];
@@ -106,6 +109,16 @@ export async function seed(sql: postgres.Sql, { fresh = false } = {}) {
       }));
       await sql`INSERT INTO test_tasks ${sql(rows)}`;
       tasks = rows.map((r) => ({ id: r.id, position: r.position }));
+    }
+
+    // Printed booth codes for /join: keep a few unused ones per company.
+    const [{ unused }] = await sql<{ unused: number }[]>`
+      SELECT count(*)::int AS unused FROM qr_tokens
+      WHERE test_id = ${test.id}::uuid AND status = 'new' AND expires_at > now()`;
+    if (unused < DEMO_CODES) {
+      const expiresAt = new Date(Date.now() + PRINTED_CODE_DAYS * 86_400_000);
+      const codes = Array.from({ length: DEMO_CODES - unused }, () => ({ token: makeToken(), test_id: test.id, expires_at: expiresAt }));
+      await sql`INSERT INTO qr_tokens ${sql(codes)} ON CONFLICT (token) DO NOTHING`;
     }
 
     // Synthetic candidates, only for the demo mix of tasks.
