@@ -29,9 +29,9 @@ export function TaskNotes({ attemptId, taskId, questions, initialAsked, initialN
   }
 
   return (
-    <div className="flex flex-col gap-2 rounded-tile border border-border p-3">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted">Ask at the booth</p>
-      <ul className="flex flex-col gap-1.5 text-sm">
+    <div className="flex flex-col gap-3 rounded-tile border border-border p-3">
+      <p className="text-sm font-semibold">Ask at the booth</p>
+      <ul className="flex flex-col gap-2 text-sm">
         {questions.map((q) => (
           <li key={q} className="flex gap-2">
             <MessageCircleQuestion className="mt-0.5 size-4 shrink-0 text-muted" aria-hidden />{q}
