@@ -2,6 +2,9 @@
 
 import { refresh } from "next/cache";
 import { createTokens } from "@/lib/data";
+import { db } from "@/lib/db";
+import { isDemoMode } from "@/lib/recruiter";
+import { seed } from "@/lib/seed";
 import { MAX_CODES_PER_BATCH, PRINTED_CODE_DAYS } from "@/lib/codes";
 
 export type CodesState = { error: string; created: number };
@@ -17,4 +20,17 @@ export async function createCodes(_prev: CodesState, formData: FormData): Promis
   if (!tokens.length) return { error: "Could not create codes. Try again.", created: 0 };
   refresh();
   return { error: "", created: tokens.length };
+}
+
+// "Reset demo data" (About tab): same as `npm run db:reseed`. Refused unless
+// DEMO_MODE is set, whatever the client sends.
+export async function resetDemo(): Promise<boolean> {
+  if (!isDemoMode()) return false;
+  try {
+    await seed(db(), { fresh: true });
+  } catch {
+    return false;
+  }
+  refresh();
+  return true;
 }

@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { MessageCircleQuestion } from "lucide-react";
 import { Spinner } from "@/components/Spinner";
-import { toast } from "@/components/Toaster";
+import { toast } from "@/components/ui/Toast";
 
 // Follow-up at the booth: suggested questions, an "asked" tick and a short note.
 export function TaskNotes({ attemptId, taskId, questions, initialAsked, initialNote }: {
@@ -24,16 +25,20 @@ export function TaskNotes({ attemptId, taskId, questions, initialAsked, initialN
       body: JSON.stringify({ taskId, asked: nextAsked, note: nextNote }),
     }).catch(() => null);
     setSaved(res?.ok ? "idle" : "error");
-    if (res?.ok) toast("Note saved");
+    if (res?.ok) toast("Saved", 2000);
   }
 
   return (
-    <div className="border border-slate-200 bg-slate-50 p-3">
-      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Ask at the booth</p>
-      <ul className="mt-1.5 list-disc space-y-1 pl-5 text-sm text-slate-800">
-        {questions.map((q) => <li key={q}>{q}</li>)}
+    <div className="flex flex-col gap-2 rounded-tile border border-border p-3">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted">Ask at the booth</p>
+      <ul className="flex flex-col gap-1.5 text-sm">
+        {questions.map((q) => (
+          <li key={q} className="flex gap-2">
+            <MessageCircleQuestion className="mt-0.5 size-4 shrink-0 text-muted" aria-hidden />{q}
+          </li>
+        ))}
       </ul>
-      <label className="mt-3 flex min-h-11 cursor-pointer items-center gap-3 text-sm font-semibold">
+      <label className="flex min-h-11 cursor-pointer items-center gap-3 text-sm font-semibold">
         <input
           type="checkbox"
           checked={asked}
@@ -41,7 +46,7 @@ export function TaskNotes({ attemptId, taskId, questions, initialAsked, initialN
             setAsked(e.target.checked);
             save(e.target.checked, note);
           }}
-          className="h-5 w-5 accent-brand-700"
+          className="size-5 accent-accent"
         />
         Asked and discussed
       </label>
@@ -52,10 +57,10 @@ export function TaskNotes({ attemptId, taskId, questions, initialAsked, initialN
         rows={2}
         maxLength={2000}
         placeholder="Note (what they explained)…"
-        className="mt-1 w-full resize-y border border-slate-200 bg-white p-2.5 text-sm outline-none focus:border-brand-600"
+        className="w-full resize-y rounded-tile border border-border bg-bg p-2.5 text-base text-fg outline-none placeholder:text-muted focus:border-fg/40"
       />
       {saved !== "idle" && (
-        <p className={`flex items-center gap-1.5 text-xs ${saved === "error" ? "text-red-700" : "text-slate-500"}`}>
+        <p className={`flex items-center gap-1.5 text-xs ${saved === "error" ? "text-bad" : "text-muted"}`}>
           {saved === "saving" ? <><Spinner />Saving…</> : "Could not save"}
         </p>
       )}

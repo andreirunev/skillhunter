@@ -141,3 +141,18 @@ export async function listCodes(testId: string): Promise<{ free: number; taken: 
   ]);
   return { free: counts.free, taken: counts.taken, codes: [...rows] };
 }
+
+export type StatRow = { status: Status; finished: boolean; this_week: boolean };
+
+// For the Stats tab: one row per attempt, counted on the page. "This week"
+// starts Monday 00:00 event time. Counts only, nothing per person.
+export async function listStatRows(testId: string): Promise<StatRow[]> {
+  const rows = await db()<StatRow[]>`
+    SELECT status, finished_at IS NOT NULL AS finished,
+      started_at >= (date_trunc('week', now() AT TIME ZONE 'Europe/Helsinki') AT TIME ZONE 'Europe/Helsinki') AS this_week
+    FROM attempts WHERE test_id = ${testId}::uuid`;
+  return [...rows];
+}
+
+// "Reset demo data" is offered only when DEMO_MODE is set (e.g. DEMO_MODE=1).
+export const isDemoMode = () => /^(1|true|yes|on)$/i.test(process.env.DEMO_MODE ?? "");

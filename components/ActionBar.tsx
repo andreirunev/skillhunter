@@ -1,39 +1,52 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Check, Ellipsis } from "lucide-react";
+import { useCandidateStatus } from "@/components/CandidateStatus";
 import { Spinner } from "@/components/Spinner";
-import { toast } from "@/components/Toaster";
-import { STATUS_LABELS } from "@/lib/format";
+import { ActionSheet } from "@/components/ui/ActionSheet";
+import { STATUS_TEXT } from "@/components/ui/StatusPill";
+import { toast } from "@/components/ui/Toast";
+import type { Status } from "@/lib/recruiter";
 
-type Saved = { status: string; code: string | null };
-type Action = { status: string; label: string };
+type Action = { status: Status; label: string };
 
-const NOT_NOW = { status: "not_now", label: "Not now" };
-const REVIEW = { status: "needs_review", label: "Review" };
-const GOOD_FIT = { status: "good_fit", label: "Good fit" };
-const INVITE = { status: "invited", label: "Invite to booth" };
-const ARRIVED = { status: "at_booth", label: "Arrived" };
-const INTERVIEW = { status: "interview", label: "Interview" };
+const isStatus = (x: unknown): x is Status => typeof x === "string" && Object.hasOwn(STATUS_TEXT, x);
 
-// The next step of the booth flow sits on the right as the primary button.
-function primaryFor(view: Saved): Action {
-  if (!view.code) return INVITE;
-  return view.status === "invited" ? ARRIVED : INTERVIEW;
+const INVITE: Action = { status: "invited", label: "Invite to booth" };
+const ARRIVED: Action = { status: "at_booth", label: "Arrived" };
+const INTERVIEW: Action = { status: "interview", label: "Interview" };
+const MORE: Action[] = [
+  ARRIVED,
+  { status: "good_fit", label: "Good fit" },
+  { status: "needs_review", label: "Review" },
+  INTERVIEW,
+  { status: "not_now", label: "Not now" },
+];
+
+// The next step of the booth flow is the primary button.
+function primaryFor(status: Status, code: string | null): Action {
+  if (!code) return INVITE;
+  return status === "invited" ? ARRIVED : INTERVIEW;
 }
 
-// Bar fixed above the tab bar: every label on a person is set here, by a
-// human, one tap each. Four equal buttons. It shows the saved result straight
-// from the API response, so it never waits for the (slower) page refresh.
-// Keyed by attempt id in the parent.
-export function ActionBar({ attemptId, status, inviteCode }: { attemptId: string; status: string; inviteCode: string | null }) {
-  const router = useRouter();
-  const [view, setView] = useState<Saved>({ status, code: inviteCode });
-  const [saving, setSaving] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+type Saving = { status: Status; from: "primary" | "more" };
 
-  async function set(next: string) {
-    setSaving(next);
+// Bar fixed above the tab bar: every label on a person is set here, by a
+// human. Primary next step + "More" (sheet with the other labels). The saved
+// result comes straight from the API response; the page refresh follows.
+export function ActionBar() {
+  const router = useRouter();
+  const { attemptId, status, code, setSaved } = useCandidateStatus();
+  const [saving, setSaving] = useState<Saving | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [sheet, setSheet] = useState(false);
+  const closeSheet = useCallback(() => setSheet(false), []);
+
+  async function save(next: Status, from: Saving["from"]) {
+    setSheet(false);
+    setSaving({ status: next, from });
     setError(null);
     const abort = new AbortController();
     const timer = setTimeout(() => abort.abort(), 15_000);
@@ -44,16 +57,16 @@ export function ActionBar({ attemptId, status, inviteCode }: { attemptId: string
         body: JSON.stringify({ status: next }),
         signal: abort.signal,
       });
-      const data: Partial<Saved> & { error?: string } = await res.json().catch(() => ({}));
-      if (!res.ok || typeof data.status !== "string") {
+      const data: { status?: unknown; code?: string | null; error?: string } = await res.json().catch(() => ({}));
+      if (!res.ok || !isStatus(data.status)) {
         setError(`Could not save (${data.error ?? `HTTP ${res.status}`}). Tap again.`);
         return;
       }
-      setView({ status: data.status, code: data.code ?? null });
-      toast(`Saved: ${STATUS_LABELS[data.status]?.label ?? data.status}`);
-      router.refresh(); // updates the header chip and the list in the background
+      setSaved({ status: data.status, code: data.code ?? null });
+      toast("Saved", 2000);
+      router.refresh(); // the list and stats pick it up in the background
     } catch {
-      setError(abort.signal.aborted ? "No answer from the server. Check the connection and tap again." : "Network error. Check the connection and tap again.");
+      setError(abort.signal.aborted ? "No answer from the server. Tap again." : "Network error. Tap again.");
     } finally {
       clearTimeout(timer);
       setSaving(null);
@@ -61,30 +74,46 @@ export function ActionBar({ attemptId, status, inviteCode }: { attemptId: string
   }
 
   const busy = saving !== null;
-  const primary = primaryFor(view);
-  const info = error ?? (view.code ? `Booth code ${view.code}` : "Your call. Nothing is decided automatically.");
-
-  const button = (a: Action, kind: "primary" | "secondary") => {
-    const on = view.status === a.status;
-    return (
-      <button key={a.status} type="button" onClick={() => set(a.status)} disabled={busy} aria-pressed={on} aria-busy={saving === a.status}
-        className={`btn w-full gap-1 px-1 ${kind === "primary" ? "btn-primary" : "btn-secondary"} ${on && kind === "secondary" ? "border-slate-900 bg-slate-100 font-bold" : ""}`}>
-        {saving === a.status ? <><Spinner />Saving…</> : on ? `✓ ${a.label}` : a.label}
-      </button>
-    );
-  };
+  const primary = primaryFor(status, code);
+  const primaryOn = status === primary.status;
+  const info = error ?? (code ? `Booth code ${code}` : "Your call. Nothing is decided automatically.");
 
   return (
-    <div data-dock className="fixed inset-x-0 bottom-(--tabbar) z-20 border-t border-slate-300 bg-white px-4 py-2">
-      <div className="mx-auto flex max-w-2xl flex-col gap-2">
-        <p aria-live="polite" className={`text-sm ${error ? "font-semibold text-red-700" : view.code ? "font-semibold text-slate-900" : "text-slate-600"}`}>
-          {info}
-        </p>
-        <div className="grid grid-cols-4 gap-2">
-          {[NOT_NOW, REVIEW, GOOD_FIT].map((a) => button(a, "secondary"))}
-          {button(primary, "primary")}
+    <>
+      <div data-dock className="fixed inset-x-0 bottom-(--tabbar) z-20 border-t border-border bg-bg px-4 pb-3 pt-2 lg:left-(--rail)">
+        <div className="mx-auto flex max-w-[720px] flex-col gap-2">
+          <p aria-live="polite" className={`truncate text-[13px] ${error ? "font-semibold text-bad" : code ? "font-semibold text-fg" : "text-muted"}`}>
+            {info}
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            <button type="button" onClick={() => save(primary.status, "primary")} disabled={busy}
+              aria-pressed={primaryOn} aria-busy={saving?.from === "primary"}
+              className="ui-btn ui-btn-primary min-h-12 px-2 text-base">
+              {saving?.from === "primary"
+                ? <><Spinner />Saving…</>
+                : <>{primaryOn && <Check className="size-4" strokeWidth={2.75} aria-hidden />}{primary.label}</>}
+            </button>
+            <button type="button" onClick={() => setSheet(true)} disabled={busy}
+              aria-haspopup="dialog" aria-busy={saving?.from === "more"}
+              className="ui-btn ui-btn-secondary min-h-12 px-2 text-base">
+              {saving?.from === "more" ? <><Spinner />Saving…</> : <><Ellipsis className="size-4" aria-hidden />More</>}
+            </button>
+          </div>
         </div>
       </div>
-    </div>
+
+      <ActionSheet open={sheet} title="Set status · your call" onClose={closeSheet}>
+        {MORE.map((a) => {
+          const on = status === a.status;
+          return (
+            <button key={a.status} type="button" onClick={() => save(a.status, "more")} aria-pressed={on}
+              className={`ui-btn min-h-12 justify-between text-base ${on ? "ui-btn-primary" : "ui-btn-secondary"}`}>
+              {a.label}
+              {on && <Check className="size-4" strokeWidth={2.75} aria-hidden />}
+            </button>
+          );
+        })}
+      </ActionSheet>
+    </>
   );
 }
