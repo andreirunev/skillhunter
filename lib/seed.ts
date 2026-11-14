@@ -85,7 +85,7 @@ export async function seed(sql: postgres.Sql, { fresh = false } = {}) {
     }
 
     // Tasks
-    let tasks = await sql<{ id: string; position: number }[]>`
+    let tasks: { id: string; position: number }[] = await sql<{ id: string; position: number }[]>`
       SELECT id, position FROM test_tasks WHERE test_id = ${test.id}::uuid ORDER BY position`;
     const defs = [
       ...PACKS.find((p) => p.sector === c.sector)!.tasks,
