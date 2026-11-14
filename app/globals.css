@@ -287,6 +287,60 @@ a[role="button"],
   }
 }
 
+/* Task type cards (components/TaskTypeCards.tsx): slow 6s loops. The static
+   styles are the last frame, which is what reduced motion shows. */
+@media (prefers-reduced-motion: no-preference) {
+  .tt-from-below {
+    animation: tt-from-below 6s ease-in-out infinite;
+  }
+  .tt-from-above {
+    animation: tt-from-above 6s ease-in-out infinite;
+  }
+  .tt-scan {
+    animation: tt-scan 6s ease-in-out infinite;
+  }
+  .tt-check {
+    animation: tt-check 6s ease-out infinite;
+  }
+  .tt-pop {
+    animation: tt-pop 6s ease-out infinite;
+  }
+  .tt-fill {
+    animation: tt-fill 6s ease-out infinite;
+  }
+}
+@keyframes tt-from-below {
+  0%, 25% { transform: translateY(28px); }
+  45%, 88% { transform: translateY(0); }
+  100% { transform: translateY(28px); }
+}
+@keyframes tt-from-above {
+  0%, 25% { transform: translateY(-28px); }
+  45%, 88% { transform: translateY(0); }
+  100% { transform: translateY(-28px); }
+}
+@keyframes tt-scan {
+  0%, 20% { transform: translateY(-14px); opacity: 0.5; }
+  40%, 88% { transform: translateY(0); opacity: 1; }
+  100% { transform: translateY(-14px); opacity: 0.5; }
+}
+@keyframes tt-check {
+  0%, 42% { transform: scale(0); opacity: 0; }
+  52% { transform: scale(1.2); opacity: 1; }
+  58%, 88% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(0); opacity: 0; }
+}
+@keyframes tt-pop {
+  0%, 35% { transform: scale(1); }
+  45% { transform: scale(1.1); }
+  55%, 100% { transform: scale(1); }
+}
+@keyframes tt-fill {
+  0%, 35% { opacity: 0; }
+  45%, 88% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
 /* Reduced motion: no animation or transition anywhere. */
 @media (prefers-reduced-motion: reduce) {
   *,

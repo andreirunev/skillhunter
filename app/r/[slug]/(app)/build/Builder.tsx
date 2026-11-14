@@ -1,15 +1,20 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
-import { Check, Plus, TriangleAlert, X } from "lucide-react";
+import {
+  useCallback, useEffect, useMemo, useRef, useState, useTransition,
+  type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactNode,
+} from "react";
+import { Check, GripVertical, Plus, Trash2, TriangleAlert, X } from "lucide-react";
 import { ChoiceInput, OrderInput } from "@/components/TaskInputs";
 import { PanelCard } from "@/components/SimInputs";
 import { Spinner } from "@/components/Spinner";
+import { NEW_TASK_FORMATS, TaskTypeCards } from "@/components/TaskTypeCards";
 import { joinSep } from "@/components/ui/Sep";
+import { toast } from "@/components/ui/Toast";
 import { bt, type BuilderKey } from "@/lib/i18n-builder";
 import type { Lang } from "@/lib/i18n";
 import {
-  FORMATS, hasLoadedWording, isValidKey,
+  hasLoadedWording, isValidKey,
   type Format, type LibraryTask, type RoleTemplate, type SimKey, type SimPayload,
 } from "@/lib/sim";
 import { publishDraft } from "./actions";
@@ -32,6 +37,9 @@ export type DraftStart = { template: RoleTemplate | null };
 type Row = { uid: string; title: string; taskId: string | null; followups: string[]; good: string[]; key: SimKey };
 // One sheet for everything: pick a type, then a library task, then edit it.
 type SheetState = { kind: "type" } | { kind: "library"; format: Format } | { kind: "edit"; index: number } | null;
+// A row being dragged by its handle: row rects measured at pointerdown, the
+// pointer's offset, and `to` = the index it would land on.
+type Drag = { pointer: number; from: number; to: number; startY: number; dy: number; rects: DOMRect[] };
 
 const LABEL = "text-[11px] font-semibold uppercase tracking-[0.08em] text-muted";
 const INPUT = "min-h-11 w-full border border-border bg-bg px-3 text-base text-fg outline-none placeholder:text-muted focus:border-fg/40";
@@ -39,6 +47,7 @@ const ICON_BTN = "tap inline-flex size-11 items-center justify-center border bor
 const OPTION = "ui-btn ui-btn-secondary min-h-12 justify-start py-2 text-left text-base";
 const LONG_SEC = 12 * 60;
 const MAX_TASKS = 8;
+const UNDO_MS = 5000;
 // Error codes from publishTest that have their own message.
 const PUBLISH_ERRORS = ["missing_title", "bad_time_limit", "bad_duty_count", "missing_task", "empty_guide", "bad_key"];
 
@@ -82,12 +91,23 @@ export function Builder({ slug, companyName, lang, templates, library, contestId
   const [error, setError] = useState<string | null>(null);
   const [published, setPublished] = useState<number | null>(null);
   const [pending, startPublish] = useTransition();
+  const [drag, setDrag] = useState<Drag | null>(null);
+  const listRef = useRef<HTMLOListElement>(null);
+  const handles = useRef(new Map<string, HTMLButtonElement>());
+  const refocus = useRef<string | null>(null);
   const closeSheet = useCallback(() => setSheet(null), []);
+
+  // A keyboard move re-orders the DOM; keep focus on the moved row's handle.
+  useEffect(() => {
+    if (refocus.current) handles.current.get(refocus.current)?.focus();
+    refocus.current = null;
+  }, [rows]);
 
   // The role tag that narrows the library: the one shared by the template's tasks.
   const template = templates.find((t) => t.slug === roleSlug) ?? null;
   const roleTag = template ? byId.get(template.duties[0]?.task_id ?? "")?.role_tags[0] ?? null : null;
-  const formats = FORMATS.filter((f) => library.some((t) => t.format === f));
+  // New tasks: only the three plain types. Rows on other formats stay as they are.
+  const newFormats = NEW_TASK_FORMATS.filter((f) => library.some((t) => t.format === f));
   const estimateSec = rows.reduce((s, r) => s + (byId.get(r.taskId ?? "")?.expected_seconds ?? 0), 0);
   const minutes = rows.length ? Math.max(1, Math.round(estimateSec / 60)) : 0;
   const timeLimit = live?.timeLimit ?? 20;
@@ -105,16 +125,62 @@ export function Builder({ slug, companyName, lang, templates, library, contestId
     setError(null);
   }
   const update = (i: number, patch: Partial<Row>) => edit((rs) => rs.map((r, j) => (j === i ? { ...r, ...patch } : r)));
-  function move(i: number, by: -1 | 1) {
+  function moveTo(from: number, to: number) {
+    if (from === to) return;
     edit((rs) => {
       const next = [...rs];
-      [next[i], next[i + by]] = [next[i + by], next[i]];
+      const [row] = next.splice(from, 1);
+      next.splice(to, 0, row);
       return next;
     });
   }
+  // One tap, no confirm: the toast offers Undo for 5 s (back at the same place).
   function remove(i: number) {
-    edit((rs) => rs.filter((_, j) => j !== i));
+    const row = rows[i];
+    if (!row) return;
+    edit((rs) => rs.filter((r) => r.uid !== row.uid));
     setSheet(null);
+    toast(tr("taskRemoved"), UNDO_MS, {
+      label: tr("undo"),
+      onClick: () => edit((rs) => (rs.some((r) => r.uid === row.uid) ? rs : [...rs.slice(0, i), row, ...rs.slice(i)])),
+    });
+  }
+
+  // Drag to reorder with pointer events (mouse and touch). Only the handle has
+  // touch-action: none, so the page still scrolls from anywhere else.
+  function grab(e: ReactPointerEvent<HTMLButtonElement>, i: number) {
+    if (e.button !== 0 || !listRef.current) return;
+    if (e.pointerType === "mouse") e.preventDefault(); // no text selection
+    e.currentTarget.setPointerCapture(e.pointerId);
+    const rects = Array.from(listRef.current.children, (el) => el.getBoundingClientRect());
+    setDrag({ pointer: e.pointerId, from: i, to: i, startY: e.clientY, dy: 0, rects });
+  }
+  // Where the row lands: the number of other rows whose middle is above the
+  // dragged row's middle.
+  function landing(d: Drag, clientY: number) {
+    const dy = clientY - d.startY;
+    const own = d.rects[d.from];
+    const center = own.top + own.height / 2 + dy;
+    return { dy, to: d.rects.filter((r, j) => j !== d.from && r.top + r.height / 2 < center).length };
+  }
+  function dragMove(e: ReactPointerEvent) {
+    if (!drag || e.pointerId !== drag.pointer) return;
+    setDrag({ ...drag, ...landing(drag, e.clientY) });
+  }
+  // The release point decides (a last pointermove may not have arrived).
+  function drop(e: ReactPointerEvent) {
+    if (!drag || e.pointerId !== drag.pointer) return;
+    setDrag(null);
+    moveTo(drag.from, landing(drag, e.clientY).to);
+  }
+  // Keyboard: ArrowUp / ArrowDown on a focused handle moves its row.
+  function handleKey(e: ReactKeyboardEvent, i: number, uid: string) {
+    if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
+    e.preventDefault();
+    const to = e.key === "ArrowUp" ? i - 1 : i + 1;
+    if (to < 0 || to >= rows.length) return;
+    refocus.current = uid;
+    moveTo(i, to);
   }
   function add(task: LibraryTask) {
     edit((rs) => [...rs, rowFrom(task.duty_hint, task)]);
@@ -164,11 +230,24 @@ export function Builder({ slug, companyName, lang, templates, library, contestId
       </header>
 
       {rows.length > 0 && (
-        <ol className="flex flex-col border-t border-border">
+        <ol ref={listRef} className="flex flex-col border-t border-border">
           {rows.map((r, i) => {
             const task = byId.get(r.taskId ?? "");
+            const dragging = drag?.from === i;
+            // Insertion line: above the row it lands on when moving up, below when moving down.
+            const line = drag && drag.to !== drag.from && drag.to === i ? (drag.to < drag.from ? "-top-px" : "-bottom-px") : null;
             return (
-              <li key={r.uid} className="flex items-center gap-2 border-b border-border py-1.5">
+              <li key={r.uid} style={dragging ? { transform: `translateY(${drag.dy}px)` } : undefined}
+                className={`relative flex items-center gap-1 border-b border-border py-1.5 ${dragging ? "z-10 border-t bg-card shadow-lg" : ""}`}>
+                {line && <span aria-hidden className={`pointer-events-none absolute inset-x-0 z-20 h-0.5 bg-accent ${line}`} />}
+                <button type="button" aria-label={tr("dragTask", { i: i + 1 })} title={tr("dragTask", { i: i + 1 })}
+                  ref={(el) => { if (el) handles.current.set(r.uid, el); else handles.current.delete(r.uid); }}
+                  onPointerDown={(e) => grab(e, i)} onPointerMove={dragMove} onPointerUp={drop}
+                  onPointerCancel={() => setDrag(null)} onKeyDown={(e) => handleKey(e, i, r.uid)}
+                  style={{ touchAction: "none", transform: "none" }}
+                  className={`tap inline-flex size-11 shrink-0 items-center justify-center text-muted ${dragging ? "cursor-grabbing text-fg" : "cursor-grab"}`}>
+                  <GripVertical className="size-5" aria-hidden />
+                </button>
                 <button type="button" onClick={() => setSheet({ kind: "edit", index: i })}
                   className="tap flex min-h-12 min-w-0 flex-1 items-center gap-3 text-left">
                   <span className="w-5 shrink-0 text-sm font-bold tabular-nums text-muted">{i + 1}</span>
@@ -179,10 +258,10 @@ export function Builder({ slug, companyName, lang, templates, library, contestId
                     </span>
                   </span>
                 </button>
-                <button type="button" disabled={i === 0} onClick={() => move(i, -1)} aria-label={tr("moveUp")}
-                  className="ui-btn ui-btn-secondary px-3">{tr("up")}</button>
-                <button type="button" disabled={i === rows.length - 1} onClick={() => move(i, 1)} aria-label={tr("moveDown")}
-                  className="ui-btn ui-btn-secondary px-3">{tr("down")}</button>
+                <button type="button" onClick={() => remove(i)} aria-label={tr("removeTask", { i: i + 1 })} title={tr("removeTask", { i: i + 1 })}
+                  className="tap inline-flex size-11 shrink-0 items-center justify-center text-muted hover:text-bad">
+                  <Trash2 className="size-5" aria-hidden />
+                </button>
               </li>
             );
           })}
@@ -219,15 +298,12 @@ export function Builder({ slug, companyName, lang, templates, library, contestId
       </div>
 
       {sheet && (sheet.kind !== "edit" || editRow) && (
-        <Sheet title={sheetTitle} closeLabel={tr("close")} onClose={closeSheet}>
+        <Sheet title={sheetTitle} closeLabel={tr("close")} onClose={closeSheet} wide={sheet.kind === "type"}>
           {sheet.kind === "type" && (
-            <div className="flex flex-col gap-2">
-              {formats.map((f) => (
-                <button key={f} type="button" onClick={() => setSheet({ kind: "library", format: f })} className={OPTION}>
-                  {tr(`fmt_${f}` as BuilderKey)}
-                </button>
-              ))}
-            </div>
+            <TaskTypeCards onPick={(f) => setSheet({ kind: "library", format: f })}
+              items={newFormats.map((f) => ({ format: f, text: {
+                title: tr(`fmt_${f}`), line: tr(`fmtLine_${f}`), exampleLabel: tr("example"), example: tr(`fmtEx_${f}`),
+              } }))} />
           )}
           {sheet.kind === "library" && (
             <div className="flex flex-col gap-2">
@@ -251,8 +327,15 @@ export function Builder({ slug, companyName, lang, templates, library, contestId
 
 type Tr = (key: BuilderKey, vars?: Record<string, string | number>) => string;
 
-// Bottom sheet with its own scroll. Escape or Close dismisses it.
-function Sheet({ title, closeLabel, onClose, children }: { title: string; closeLabel: string; onClose: () => void; children: ReactNode }) {
+// Bottom sheet with its own scroll. Escape or Close dismisses it. `wide`: a
+// wider dialog on desktop (the task type cards).
+function Sheet({ title, closeLabel, onClose, wide = false, children }: {
+  title: string;
+  closeLabel: string;
+  onClose: () => void;
+  wide?: boolean;
+  children: ReactNode;
+}) {
   const panel = useRef<HTMLDivElement>(null);
   useEffect(() => {
     panel.current?.focus({ preventScroll: true });
@@ -264,7 +347,8 @@ function Sheet({ title, closeLabel, onClose, children }: { title: string; closeL
     <div className="fixed inset-0 z-40 flex items-end justify-center lg:items-center lg:pl-(--rail)">
       <div aria-hidden onClick={onClose} className="absolute inset-0 animate-fade bg-black/60" />
       <div ref={panel} role="dialog" aria-modal="true" aria-label={title} tabIndex={-1}
-        className="relative flex max-h-[88dvh] w-full max-w-[720px] animate-rise flex-col border border-b-0 border-border bg-card outline-none lg:max-w-lg lg:border-b">
+        className={`relative flex max-h-[88dvh] w-full max-w-[720px] animate-rise flex-col border border-b-0 border-border bg-card outline-none lg:border-b ${
+          wide ? "lg:max-w-2xl" : "lg:max-w-lg"}`}>
         <div className="flex items-center gap-3 border-b border-border px-4 py-2">
           <p className={`min-w-0 flex-1 truncate ${LABEL}`}>{title}</p>
           <button type="button" onClick={onClose} aria-label={closeLabel} title={closeLabel} className="tap inline-flex size-11 items-center justify-center text-muted">

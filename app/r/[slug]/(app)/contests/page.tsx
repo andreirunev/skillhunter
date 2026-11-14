@@ -2,32 +2,21 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowRight, Plus } from "lucide-react";
 import { RecruiterLang } from "@/components/RecruiterLang";
+import { NEW_TASK_FORMATS, TaskTypeCards } from "@/components/TaskTypeCards";
 import { SectionLabel, ScreenTitle } from "@/components/ui/ScreenTitle";
 import { joinSep } from "@/components/ui/Sep";
 import { bt, type BuilderKey } from "@/lib/i18n-builder";
 import { cookieLang } from "@/lib/lang";
 import { getCompany, isDemoMode } from "@/lib/recruiter";
-import { FORMATS, type Format } from "@/lib/sim";
 import { listContests } from "@/lib/sim-store";
 import { ResetDemo } from "./ResetDemo";
 
 export const dynamic = "force-dynamic";
 
 const LABEL = "text-[11px] font-semibold uppercase tracking-[0.08em] text-muted";
-// Task types grid only (by request); the rest of the UI chrome has no emoji.
-// All Emoji 11 or older, so Windows 10 shows them.
-const FORMAT_EMOJI: Record<Format, string> = {
-  triage: "📋",
-  spot_error: "🔍",
-  next_step: "🧭",
-  apply_rule: "✅",
-  read_decide: "📊",
-  handover: "📝",
-  quick_logic: "🧩",
-};
 
 // Contests tab: start a contest (from scratch or a template), the company's
-// contests, and the task types.
+// contests, and the three task types offered for new tasks.
 export default async function ContestsPage(props: PageProps<"/r/[slug]/contests">) {
   const { slug } = await props.params;
   const company = await getCompany(slug);
@@ -93,21 +82,9 @@ export default async function ContestsPage(props: PageProps<"/r/[slug]/contests"
 
       <section className="flex flex-col gap-3">
         <SectionLabel>{t("taskTypes")}</SectionLabel>
-        <ul className="grid grid-cols-1 gap-2 min-[360px]:grid-cols-2 md:grid-cols-3">
-          {FORMATS.map((f) => (
-            <li key={f} className="flex flex-col gap-1.5 border border-border bg-card p-3">
-              <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-semibold leading-snug">
-                <span><span aria-hidden className="mr-1.5">{FORMAT_EMOJI[f]}</span>{t(`fmt_${f}` as BuilderKey)}</span>
-                {f === "quick_logic" && <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted">{t("optional")}</span>}
-              </p>
-              <p className="text-[13px] leading-snug">{t(`fmtLine_${f}` as BuilderKey)}</p>
-              <p className="mt-auto pt-1 text-[12px] leading-snug text-muted">
-                <span className="mb-0.5 block text-[10px] font-semibold uppercase tracking-[0.08em]">{t("example")}</span>
-                {t(`fmtEx_${f}` as BuilderKey)}
-              </p>
-            </li>
-          ))}
-        </ul>
+        <TaskTypeCards items={NEW_TASK_FORMATS.map((f) => ({ format: f, text: {
+          title: t(`fmt_${f}`), line: t(`fmtLine_${f}`), exampleLabel: t("example"), example: t(`fmtEx_${f}`),
+        } }))} />
       </section>
 
       {isDemoMode() && <ResetDemo />}

@@ -12,9 +12,9 @@ export const isFormat = (x: unknown): x is Format => typeof x === "string" && (F
 export const FORMAT_LABELS: Record<Format, string> = {
   triage: "Put in order",
   spot_error: "Find the mistake",
-  next_step: "What to do next",
+  next_step: "Pick the first thing to do",
   apply_rule: "Follow the rule",
-  read_decide: "Read the numbers",
+  read_decide: "Read, then pick one",
   handover: "Pick the best note",
   quick_logic: "Puzzle",
 };
