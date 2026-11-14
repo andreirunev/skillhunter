@@ -124,6 +124,66 @@ CREATE TABLE IF NOT EXISTS recruiter_notes (
   PRIMARY KEY (attempt_id, task_id)
 );
 
+-- Job simulation. A Head of HR describes the role's duties before the event;
+-- each duty maps to one micro-task from task_library (seeded from
+-- lib/sim-library.ts, starting points in role_templates). Publishing freezes
+-- a full copy of the tasks in company_tests (one row per version), so later
+-- edits never change an attempt in flight. companies.live_version = the
+-- version new candidates get (0 = the older test_tasks list).
+CREATE TABLE IF NOT EXISTS task_library (
+  id               text PRIMARY KEY,
+  format           text NOT NULL CHECK (format IN ('triage','spot_error','next_step','apply_rule','read_decide','handover','quick_logic')),
+  role_tags        text[] NOT NULL DEFAULT '{}',
+  title            text NOT NULL,
+  duty_hint        text NOT NULL,
+  skill_tag        text NOT NULL,
+  skill_kind       text NOT NULL CHECK (skill_kind IN ('hard', 'soft')),
+  expected_seconds integer NOT NULL CHECK (expected_seconds > 0),
+  payload          jsonb NOT NULL,
+  key              jsonb,
+  key_kind         text NOT NULL CHECK (key_kind IN ('exact', 'typical', 'none')),
+  good_looks_like  text[] NOT NULL DEFAULT '{}',
+  not_measure_note text NOT NULL,
+  followups        text[] NOT NULL DEFAULT '{}',
+  default_order    integer NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS role_templates (
+  id      uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  slug    text NOT NULL UNIQUE,
+  name    text NOT NULL,
+  summary text NOT NULL,
+  duties  jsonb NOT NULL DEFAULT '[]'
+);
+
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS live_version integer NOT NULL DEFAULT 0;
+
+CREATE TABLE IF NOT EXISTS company_tests (
+  id                 uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id         uuid NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  version            integer NOT NULL CHECK (version > 0),
+  title              text NOT NULL,
+  role_slug          text,
+  duties             jsonb NOT NULL,
+  tasks              jsonb NOT NULL,
+  time_limit_minutes integer NOT NULL DEFAULT 20 CHECK (time_limit_minutes BETWEEN 5 AND 60),
+  english_required   boolean NOT NULL DEFAULT false,
+  published_at       timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (company_id, version)
+);
+
+-- An attempt keeps the version (and time limit) it started with. NULL =
+-- made before the simulation model: its tasks are the test_tasks rows.
+ALTER TABLE attempts ADD COLUMN IF NOT EXISTS company_test_id uuid REFERENCES company_tests(id) ON DELETE CASCADE;
+ALTER TABLE attempts ADD COLUMN IF NOT EXISTS time_limit_minutes integer NOT NULL DEFAULT 20;
+CREATE INDEX IF NOT EXISTS attempts_by_company_test ON attempts (company_test_id);
+
+-- Answers and notes may point at a snapshot task (a uuid inside
+-- company_tests.tasks), so task_id no longer references test_tasks. Rows go
+-- with their attempt (ON DELETE CASCADE on attempt_id).
+ALTER TABLE answers DROP CONSTRAINT IF EXISTS answers_task_id_fkey;
+ALTER TABLE recruiter_notes DROP CONSTRAINT IF EXISTS recruiter_notes_task_id_fkey;
+
 CREATE INDEX IF NOT EXISTS test_tasks_by_test ON test_tasks (test_id, position);
 CREATE INDEX IF NOT EXISTS attempts_by_test ON attempts (test_id, started_at);
 CREATE INDEX IF NOT EXISTS qr_tokens_by_test ON qr_tokens (test_id);
@@ -140,6 +200,9 @@ ALTER TABLE answers         ENABLE ROW LEVEL SECURITY;
 ALTER TABLE invitations     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE recruiter_notes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE code_misses     ENABLE ROW LEVEL SECURITY;
+ALTER TABLE task_library    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE role_templates  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE company_tests   ENABLE ROW LEVEL SECURITY;
 `;
 
 // One small pool per server process, kept on globalThis so dev reloads reuse it.
