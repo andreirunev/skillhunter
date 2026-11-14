@@ -18,12 +18,12 @@ export function PrintCodes({ slug, codes, max, days }: { slug: string; codes: st
   }
 
   return (
-    <details className="rounded-3xl bg-white shadow-sm ring-1 ring-slate-200">
-      <summary className="tap flex min-h-14 cursor-pointer items-center justify-between gap-3 px-4 font-semibold">
-        <span>🖨️ Print booth codes</span>
+    <details className="border border-slate-200 bg-white">
+      <summary className="tap flex min-h-11 cursor-pointer items-center justify-between gap-3 px-4 font-semibold">
+        <span>Print booth codes</span>
         <span className="text-sm font-normal text-slate-500">{codes.length} unused</span>
       </summary>
-      <div className="flex flex-col gap-3 border-t border-slate-100 p-4">
+      <div className="flex flex-col gap-3 border-t border-slate-200 p-4">
         <p className="text-sm text-slate-600">
           Each code starts the test once and expires after {days} days. Hand them out on cards; candidates type the code at <span className="font-mono font-semibold">/join</span>.
         </p>
@@ -33,10 +33,10 @@ export function PrintCodes({ slug, codes, max, days }: { slug: string; codes: st
           <label className="flex flex-col gap-1 text-sm font-semibold text-slate-700">
             How many
             <input name="count" type="number" inputMode="numeric" min={1} max={max} defaultValue={10} required
-              className="min-h-12 w-24 rounded-xl bg-white px-3 text-lg ring-1 ring-slate-300 outline-none focus:ring-2 focus:ring-brand-600" />
+              className="min-h-11 w-24 border border-slate-400 bg-white px-3 text-lg outline-none focus:border-slate-900" />
           </label>
           <button type="submit" disabled={pending}
-            className="min-h-12 flex-1 rounded-xl bg-brand-700 px-4 font-bold text-white active:scale-[0.99] disabled:opacity-60">
+            className="btn btn-primary flex-1">
             {pending ? "Creating…" : "Create codes"}
           </button>
         </form>
@@ -48,12 +48,12 @@ export function PrintCodes({ slug, codes, max, days }: { slug: string; codes: st
           <>
             <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3">
               {codes.map((c) => (
-                <li key={c} className="rounded-xl bg-slate-50 py-2 text-center font-mono text-lg font-bold tracking-wider ring-1 ring-slate-200">{c}</li>
+                <li key={c} className="border border-slate-200 bg-slate-50 py-2 text-center font-mono text-lg font-bold tracking-wider">{c}</li>
               ))}
             </ul>
             <button type="button" onClick={copyAll}
-              className="min-h-12 rounded-xl bg-slate-100 font-semibold text-slate-800 active:bg-slate-200">
-              {copy === "done" ? "Copied ✓" : `📋 Copy all ${codes.length} (one per line)`}
+              className="btn btn-secondary">
+              {copy === "done" ? "Copied ✓" : `Copy all ${codes.length} (one per line)`}
             </button>
             {copy === "failed" && <p className="text-sm text-red-700">Copy did not work here. Long-press a code to select it.</p>}
           </>

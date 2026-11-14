@@ -25,10 +25,10 @@ export function TaskNotes({ attemptId, taskId, questions, initialAsked, initialN
   }
 
   return (
-    <div className="rounded-2xl bg-slate-50 p-3">
+    <div className="border border-slate-200 bg-slate-50 p-3">
       <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Ask at the booth</p>
-      <ul className="mt-1.5 space-y-1 text-sm text-slate-800">
-        {questions.map((q) => <li key={q}>💬 {q}</li>)}
+      <ul className="mt-1.5 list-disc space-y-1 pl-5 text-sm text-slate-800">
+        {questions.map((q) => <li key={q}>{q}</li>)}
       </ul>
       <label className="mt-3 flex min-h-11 cursor-pointer items-center gap-3 text-sm font-semibold">
         <input
@@ -49,7 +49,7 @@ export function TaskNotes({ attemptId, taskId, questions, initialAsked, initialN
         rows={2}
         maxLength={2000}
         placeholder="Note (what they explained)…"
-        className="mt-1 w-full resize-y rounded-xl border border-slate-200 bg-white p-2.5 text-sm outline-none focus:border-brand-600"
+        className="mt-1 w-full resize-y border border-slate-200 bg-white p-2.5 text-sm outline-none focus:border-brand-600"
       />
       {saved !== "idle" && (
         <p className={`text-xs ${saved === "error" ? "text-red-700" : "text-slate-500"}`}>

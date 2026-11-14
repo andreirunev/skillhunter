@@ -34,13 +34,13 @@ export function JoinForm({ initialCode, error }: { initialCode: string; error: s
         required
         aria-invalid={Boolean(error)}
         aria-describedby="code-error"
-        className="min-h-16 rounded-2xl bg-white px-4 text-center font-mono text-3xl font-bold tracking-[0.2em] ring-1 ring-slate-300 outline-none placeholder:text-slate-300 focus:ring-2 focus:ring-brand-600"
+        className="min-h-14 border border-slate-400 bg-white px-4 text-center font-mono text-3xl font-bold tracking-[0.2em] outline-none placeholder:text-slate-300 focus:border-slate-900"
       />
-      <p id="code-error" aria-live="polite" className="min-h-10 text-center text-sm font-medium text-red-700">{error}</p>
+      <p id="code-error" aria-live="polite" className="min-h-5 text-sm font-medium text-red-700">{error}</p>
       <button
         type="submit"
         disabled={pending}
-        className="min-h-14 rounded-2xl bg-brand-700 text-lg font-bold text-white shadow-md shadow-brand-700/20 active:scale-[0.99] disabled:opacity-60"
+        className="btn btn-primary min-h-12 text-base"
       >
         {pending ? "Checking…" : "Start"}
       </button>

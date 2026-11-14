@@ -4,19 +4,25 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { STATUS_LABELS } from "@/lib/format";
 
-const DECISIONS = [
-  { status: "good_fit", emoji: "👍", label: "Good fit", sub: "my call" },
-  { status: "needs_review", emoji: "🔎", label: "Review", sub: "later" },
-  { status: "interview", emoji: "🤝", label: "Interview", sub: "offered" },
-  { status: "not_now", emoji: "⏸️", label: "Not now", sub: "" },
-];
-
 type Saved = { status: string; code: string | null };
+type Action = { status: string; label: string };
 
-// Sticky bar: every label on a person is set here, by a human, one tap each.
-// The bar shows the saved result straight from the API response, so it never
-// waits for the (slower) page refresh. The parent keys it by attempt id so the
-// state resets when another candidate is opened.
+const NOT_NOW = { status: "not_now", label: "Not now" };
+const REVIEW = { status: "needs_review", label: "Review" };
+const GOOD_FIT = { status: "good_fit", label: "Good fit" };
+const INVITE = { status: "invited", label: "Invite to booth" };
+const ARRIVED = { status: "at_booth", label: "Arrived" };
+const INTERVIEW = { status: "interview", label: "Interview" };
+
+// The next step of the booth flow sits on the right as the primary button.
+function primaryFor(view: Saved): Action {
+  if (!view.code) return INVITE;
+  return view.status === "invited" ? ARRIVED : INTERVIEW;
+}
+
+// Fixed bottom bar: every label on a person is set here, by a human, one tap
+// each. It shows the saved result straight from the API response, so it never
+// waits for the (slower) page refresh. Keyed by attempt id in the parent.
 export function ActionBar({ attemptId, status, inviteCode }: { attemptId: string; status: string; inviteCode: string | null }) {
   const router = useRouter();
   const [view, setView] = useState<Saved>({ status, code: inviteCode });
@@ -42,6 +48,7 @@ export function ActionBar({ attemptId, status, inviteCode }: { attemptId: string
       }
       setView({ status: data.status, code: data.code ?? null });
       setMessage({ kind: "ok", text: `Saved: ${STATUS_LABELS[data.status]?.label ?? data.status}` });
+      setTimeout(() => setMessage((m) => (m?.kind === "ok" ? null : m)), 2500);
       router.refresh(); // updates the header chip and the list in the background
     } catch {
       setMessage({
@@ -55,46 +62,37 @@ export function ActionBar({ attemptId, status, inviteCode }: { attemptId: string
   }
 
   const busy = saving !== null;
+  const primary = primaryFor(view);
+  const more = primary === INTERVIEW ? [] : [INTERVIEW];
+  const info = busy
+    ? "Saving…"
+    : message?.text ?? (view.code ? `Booth code ${view.code}` : "Your call. Nothing is decided automatically.");
+
+  const button = (a: Action, kind: "primary" | "secondary") => {
+    const on = view.status === a.status;
+    return (
+      <button key={a.status} type="button" onClick={() => set(a.status)} disabled={busy} aria-pressed={on}
+        className={`btn w-full px-1 ${kind === "primary" ? "btn-primary" : "btn-secondary"} ${on && kind === "secondary" ? "border-slate-900 bg-slate-100 font-bold" : ""}`}>
+        {saving === a.status ? "Saving…" : on ? `✓ ${a.label}` : a.label}
+      </button>
+    );
+  };
+
   return (
-    <div className="fixed inset-x-0 bottom-0 z-20 border-t border-slate-200 bg-white/95 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-8px_24px_rgba(15,23,42,0.08)] backdrop-blur">
+    <div className="fixed inset-x-0 bottom-0 z-20 border-t border-slate-300 bg-white px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2">
       <div className="mx-auto flex max-w-2xl flex-col gap-2">
-        <p aria-live="polite" className={`min-h-5 text-center text-sm font-semibold ${
-          message?.kind === "error" ? "text-red-700" : busy ? "text-slate-600" : "text-leaf-700"
-        }`}>
-          {busy ? "Saving…" : message?.text ?? ""}
-        </p>
-        {view.code ? (
-          <div className="flex min-h-12 items-center justify-between gap-3 rounded-2xl bg-brand-50 px-4">
-            <span className="text-sm font-semibold text-brand-800">📍 Invited · code <span className="font-mono text-base">{view.code}</span></span>
-            {view.status !== "at_booth" && (
-              <button type="button" onClick={() => set("at_booth")} disabled={busy}
-                className="min-h-10 rounded-xl bg-white px-3 text-sm font-semibold text-brand-800 ring-1 ring-brand-600/30 disabled:opacity-60">
-                {saving === "at_booth" ? "Saving…" : "Arrived ✓"}
-              </button>
-            )}
-          </div>
-        ) : (
-          <button type="button" onClick={() => set("invited")} disabled={busy}
-            className="min-h-12 rounded-2xl bg-brand-700 text-base font-bold text-white shadow-md shadow-brand-700/20 active:scale-[0.99] disabled:opacity-60">
-            {saving === "invited" ? "Saving…" : "📍 Invite to booth"}
-          </button>
-        )}
-        <div className="grid grid-cols-4 gap-2">
-          {DECISIONS.map((d) => {
-            const on = view.status === d.status;
-            return (
-              <button key={d.status} type="button" onClick={() => set(d.status)} disabled={busy} aria-pressed={on}
-                className={`flex min-h-14 flex-col items-center justify-center rounded-xl text-xs font-semibold leading-tight transition disabled:opacity-60 ${
-                  on ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-700 active:bg-slate-200"
-                }`}>
-                <span className="text-base" aria-hidden>{saving === d.status ? "⏳" : d.emoji}</span>
-                {saving === d.status ? "Saving…" : d.label}
-                {d.sub && saving !== d.status && <span className={`font-normal ${on ? "text-white/70" : "text-slate-500"}`}>{d.sub}</span>}
-              </button>
-            );
-          })}
+        <div className="flex min-h-11 items-center gap-2">
+          <p aria-live="polite" className={`min-w-0 flex-1 text-sm ${
+            message?.kind === "error" ? "font-semibold text-red-700" : view.code && !busy && !message ? "font-semibold text-slate-900" : "text-slate-600"
+          }`}>
+            {info}
+          </p>
+          {more.map((a) => <div key={a.status} className="w-1/4 shrink-0">{button(a, "secondary")}</div>)}
         </div>
-        <p className="text-center text-[11px] text-slate-500">Your decision, stored as a human label. SkillScan never labels people automatically.</p>
+        <div className="grid grid-cols-4 gap-2">
+          {[NOT_NOW, REVIEW, GOOD_FIT].map((a) => button(a, "secondary"))}
+          {button(primary, "primary")}
+        </div>
       </div>
     </div>
   );

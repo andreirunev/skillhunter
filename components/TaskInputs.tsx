@@ -22,9 +22,9 @@ function OptionFace({ option, big }: { option: Option; big?: boolean }) {
 
 function tileClass(selected: boolean, grid: boolean) {
   return [
-    "flex min-h-16 w-full items-center gap-3 rounded-2xl border-2 px-4 py-3 text-left transition active:scale-[0.98]",
+    "flex min-h-16 w-full items-center gap-3 border-2 px-4 py-3 text-left",
     grid ? "flex-col justify-center text-center" : "",
-    selected ? "border-brand-600 bg-brand-50 shadow-sm" : "border-slate-200 bg-white",
+    selected ? "border-brand-600 bg-brand-50" : "border-slate-200 bg-white",
   ].join(" ");
 }
 
@@ -54,7 +54,7 @@ function MultiInput({ options, layout, value = [], onChange }: InputProps<string
               const next = on ? value.filter((id) => id !== o.id) : [...value, o.id];
               onChange(next.length ? next : undefined, on);
             }}>
-            <span className={`absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-md border-2 text-sm font-bold ${on ? "border-brand-600 bg-brand-600 text-white" : "border-slate-300 bg-white"}`} aria-hidden>
+            <span className={`absolute right-2 top-2 flex h-6 w-6 items-center justify-center border-2 text-sm font-bold ${on ? "border-brand-600 bg-brand-600 text-white" : "border-slate-300 bg-white"}`} aria-hidden>
               {on ? "✓" : ""}
             </span>
             <OptionFace option={o} big={grid} />
@@ -70,11 +70,11 @@ function OrderInput({ options, value = [], onChange, lang }: InputProps<string[]
   const remaining = options.filter((o) => !value.includes(o.id));
   return (
     <div className="flex flex-col gap-4">
-      <div className="rounded-2xl bg-slate-100 p-3">
+      <div className="bg-slate-100 p-3">
         <div className="mb-2 flex items-center justify-between px-1">
           <span className="text-sm font-semibold text-slate-600">{t(lang, "yourOrder")}</span>
           {value.length > 0 && (
-            <button type="button" className="min-h-10 rounded-lg px-3 text-sm font-semibold text-brand-700" onClick={() => onChange(undefined, true)}>
+            <button type="button" className="min-h-10 px-3 text-sm font-semibold text-brand-700" onClick={() => onChange(undefined, true)}>
               ↺ {t(lang, "clear")}
             </button>
           )}
@@ -85,15 +85,15 @@ function OrderInput({ options, value = [], onChange, lang }: InputProps<string[]
             return (
               <li key={i}>
                 {id ? (
-                  <button type="button" className="flex min-h-14 w-full items-center gap-3 rounded-xl bg-white px-3 text-left shadow-sm ring-2 ring-brand-600"
+                  <button type="button" className="flex min-h-14 w-full items-center gap-3 border-2 border-brand-600 bg-white px-3 text-left"
                     onClick={() => onChange(value.filter((x) => x !== id).length ? value.filter((x) => x !== id) : undefined, true)}>
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-700 font-bold text-white">{i + 1}</span>
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center bg-brand-700 font-bold text-white">{i + 1}</span>
                     <OptionFace option={byId(id)} />
                     <span className="ml-auto text-slate-400" aria-hidden>✕</span>
                   </button>
                 ) : (
-                  <div className="flex min-h-14 items-center gap-3 rounded-xl border-2 border-dashed border-slate-300 px-3 text-slate-400">
-                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-200 font-bold">{i + 1}</span>
+                  <div className="flex min-h-14 items-center gap-3 border-2 border-dashed border-slate-300 px-3 text-slate-400">
+                    <span className="flex h-8 w-8 items-center justify-center bg-slate-200 font-bold">{i + 1}</span>
                   </div>
                 )}
               </li>
@@ -147,9 +147,9 @@ function MatchInput({ left, right, value = {}, onChange }: InputProps<Record<str
           return (
             <button key={o.id} type="button" aria-pressed={isActive}
               onClick={() => setActive(isActive ? null : o.id)}
-              className={`relative flex min-h-20 flex-col items-center justify-center gap-1 rounded-2xl border-2 px-2 py-2 text-center transition ${isActive ? "border-brand-600 bg-brand-50 ring-4 ring-brand-100" : "border-slate-200 bg-white"}`}
+              className={`relative flex min-h-20 flex-col items-center justify-center gap-1 border-2 px-2 py-2 text-center ${isActive ? "border-brand-600 bg-brand-50" : "border-slate-200 bg-white"}`}
               style={paired && !isActive ? { borderColor: colorOf(o.id), background: `${colorOf(o.id)}14` } : undefined}>
-              <span className="absolute -left-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold text-white" style={{ background: colorOf(o.id) }}>
+              <span className="absolute -left-2 -top-2 flex h-6 w-6 items-center justify-center text-xs font-bold text-white" style={{ background: colorOf(o.id) }}>
                 {i + 1}
               </span>
               <OptionFace option={o} />
@@ -162,10 +162,10 @@ function MatchInput({ left, right, value = {}, onChange }: InputProps<Record<str
           const owner = leftFor(o.id);
           return (
             <button key={o.id} type="button" onClick={() => pick(o.id)}
-              className={`relative flex min-h-20 flex-col items-center justify-center gap-1 rounded-2xl border-2 px-2 py-2 text-center transition ${active && !owner ? "border-dashed border-brand-600 bg-white" : "border-slate-200 bg-white"}`}
+              className={`relative flex min-h-20 flex-col items-center justify-center gap-1 border-2 px-2 py-2 text-center ${active && !owner ? "border-dashed border-brand-600 bg-white" : "border-slate-200 bg-white"}`}
               style={owner ? { borderColor: colorOf(owner), background: `${colorOf(owner)}14` } : undefined}>
               {owner && (
-                <span className="absolute -left-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold text-white" style={{ background: colorOf(owner) }}>
+                <span className="absolute -left-2 -top-2 flex h-6 w-6 items-center justify-center text-xs font-bold text-white" style={{ background: colorOf(owner) }}>
                   {left.findIndex((l) => l.id === owner) + 1}
                 </span>
               )}
@@ -181,7 +181,7 @@ function MatchInput({ left, right, value = {}, onChange }: InputProps<Record<str
 function NumberInput({ unit, value, onChange }: InputProps<number> & { unit?: string }) {
   const [text, setText] = useState(value === undefined ? "" : String(value));
   return (
-    <label className="flex items-center gap-3 rounded-2xl border-2 border-slate-200 bg-white px-4 focus-within:border-brand-600">
+    <label className="flex items-center gap-3 border-2 border-slate-200 bg-white px-4 focus-within:border-brand-600">
       <input
         type="text"
         inputMode="decimal"

@@ -36,3 +36,16 @@ a[role="button"],
   -webkit-user-select: none;
   user-select: none;
 }
+
+/* Flat, square buttons: 1px border, 44px touch height, no shadow. */
+@layer components {
+  .btn {
+    @apply inline-flex min-h-11 items-center justify-center gap-2 border px-4 text-center text-sm font-semibold leading-tight disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply border-slate-900 bg-slate-900 text-white active:bg-slate-700;
+  }
+  .btn-secondary {
+    @apply border-slate-400 bg-white text-slate-900 active:bg-slate-100;
+  }
+}

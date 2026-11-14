@@ -19,13 +19,13 @@ export function PinForm() {
         required
         aria-invalid={Boolean(state.error)}
         aria-describedby="pin-error"
-        className="min-h-14 rounded-2xl bg-white px-4 text-lg ring-1 ring-slate-300 outline-none focus:ring-2 focus:ring-brand-600"
+        className="min-h-12 border border-slate-400 bg-white px-4 text-lg outline-none focus:border-slate-900"
       />
       <p id="pin-error" aria-live="polite" className="min-h-5 text-sm font-medium text-red-700">{state.error}</p>
       <button
         type="submit"
         disabled={pending}
-        className="min-h-14 rounded-2xl bg-brand-700 text-base font-bold text-white shadow-md shadow-brand-700/20 active:scale-[0.99] disabled:opacity-60"
+        className="btn btn-primary min-h-12 text-base"
       >
         {pending ? "…" : "Open my booth"}
       </button>

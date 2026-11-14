@@ -7,8 +7,8 @@ const SIZES = {
 export function AvatarBadge({ emoji, color, size = "md" }: { emoji: string; color: string; size?: keyof typeof SIZES }) {
   return (
     <span
-      className={`inline-flex shrink-0 items-center justify-center rounded-full ring-4 ring-white ${SIZES[size]}`}
-      style={{ background: `${color}22`, boxShadow: `0 0 0 2px ${color}` }}
+      className={`inline-flex shrink-0 items-center justify-center ${SIZES[size]}`}
+      style={{ background: `${color}22`, border: `2px solid ${color}` }}
       aria-hidden
     >
       {emoji}
