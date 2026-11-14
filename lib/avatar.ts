@@ -3,7 +3,7 @@
 const ANIMALS: [string, string][] = [
   ["🦊", "Fox"], ["🦉", "Owl"], ["🐢", "Turtle"], ["🐬", "Dolphin"], ["🦦", "Otter"], ["🐝", "Bee"],
   ["🦔", "Hedgehog"], ["🐧", "Penguin"], ["🦋", "Butterfly"], ["🐳", "Whale"], ["🐿️", "Squirrel"], ["🦌", "Deer"],
-  ["🦫", "Beaver"], ["🐻", "Bear"], ["🦢", "Swan"], ["🐸", "Frog"],
+  ["🐨", "Koala"], ["🐻", "Bear"], ["🦢", "Swan"], ["🐸", "Frog"],
 ];
 const WORDS = ["Calm", "Bright", "Swift", "Brave", "Kind", "Clever", "Steady", "Sunny", "Quiet", "Bold", "Gentle", "Keen"];
 // Blues and greens.

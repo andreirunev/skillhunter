@@ -47,7 +47,7 @@ Templates are grouped by sector and skill type (spatial, logical, procedural, at
 ### Flow
 1. Booth contact: recruiter gives brochure + personal QR. Codes are pre-printed with a spare margin.
 2. QR activation: random token, no personal data, single-use, expiry, bound to the company's test. No GPS or location.
-3. Anonymous avatar (emoji + colour + generated nickname) and interface language (EN / FI / RU). Optional "own pace" mode (extra time).
+3. Anonymous avatar (emoji + colour + generated nickname) and interface language (EN / FI / SV; no Russian UI). Task text stays English with emoji. Optional "own pace" mode (extra time).
 4. Test: ~10-15 short tasks from the company's own mix.
 5. Attempt saved: per task answer, time spent, number of answer changes.
 6. **Informational flags** (plain rules, no ML), each with a short explanation and a "what this does NOT mean" note.

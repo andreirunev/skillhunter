@@ -46,7 +46,7 @@ const general: TaskDef[] = [
     id: "gen-tea", sector: "general", skill: "procedural", type: "order", expectedSec: 30,
     payload: {
       title: "Make tea", prompt: "Put the steps in order.",
-      options: [o("a", "Serve", "☕"), o("b", "Boil water", "🔥"), o("c", "Wait 3 minutes", "⏳"), o("d", "Pour water on the tea", "🫖")],
+      options: [o("a", "Serve", "☕"), o("b", "Boil water", "🔥"), o("c", "Wait 3 minutes", "⏳"), o("d", "Pour water on the tea", "💧")],
     },
     key: { value: ["b", "d", "c", "a"] },
     followUps: ["Which step can never be skipped?", "How do you learn the order of steps in a new job?"],
@@ -85,7 +85,7 @@ const cleaning: TaskDef[] = [
   {
     id: "cln-dilute", sector: "cleaning", skill: "logical", type: "number", expectedSec: 30,
     payload: {
-      title: "Dilution", emoji: "🧴 → 🪣", unit: "ml",
+      title: "Dilution", emoji: "🧴 + 💧", unit: "ml",
       prompt: "Label: 10 ml per 1 litre of water. Your bucket holds 6 litres. How much concentrate?",
     },
     key: { value: 60 },
@@ -95,7 +95,7 @@ const cleaning: TaskDef[] = [
     id: "cln-wetfloor", sector: "cleaning", skill: "safety", type: "choice", expectedSec: 15,
     payload: {
       title: "Wet floor", prompt: "You have just mopped a corridor. What do you put out first?", layout: "grid",
-      options: [o("a", "Wet-floor sign", "⚠️"), o("b", "Radio", "📻"), o("c", "Laundry basket", "🧺"), o("d", "Ladder", "🪜")],
+      options: [o("a", "Wet-floor sign", "⚠️"), o("b", "Radio", "📻"), o("c", "Laundry basket", "🧺"), o("d", "Broom", "🧹")],
     },
     key: { value: "a" },
     followUps: ["Why is this the first thing?", "What else keeps people safe while you clean?"],
@@ -116,7 +116,7 @@ const construction: TaskDef[] = [
     id: "con-ppe", sector: "construction", skill: "safety", type: "multi", expectedSec: 25,
     payload: {
       title: "Welding PPE", prompt: "Select all the protective gear you need for arc welding.",
-      options: [o("a", "Welding helmet", "🪖"), o("b", "Leather gloves", "🧤"), o("c", "Flame-resistant jacket", "🧥"), o("d", "Sandals", "🩴"), o("e", "Sunglasses", "🕶️"), o("f", "Safety boots", "🥾")],
+      options: [o("a", "Welding helmet", "⛑️"), o("b", "Leather gloves", "🧤"), o("c", "Flame-resistant jacket", "🧥"), o("d", "Sandals", "👡"), o("e", "Sunglasses", "🕶️"), o("f", "Safety boots", "🥾")],
     },
     key: { value: ["a", "b", "c", "f"] },
     followUps: ["Why are sunglasses not enough?", "Tell me about a time PPE protected you or a colleague."],
@@ -133,7 +133,7 @@ const construction: TaskDef[] = [
   {
     id: "con-level", sector: "construction", skill: "spatial", type: "choice", expectedSec: 25,
     payload: {
-      title: "Spirit level", emoji: "🫧", prompt: "The bubble in the spirit level sits left of the centre. Which end is higher?",
+      title: "Spirit level", emoji: "📐", prompt: "The bubble in the spirit level sits left of the centre. Which end is higher?",
       options: [o("a", "Left end", "⬅️"), o("b", "Right end", "➡️"), o("c", "It is level", "⚖️")],
     },
     key: { value: "a" },
@@ -143,7 +143,7 @@ const construction: TaskDef[] = [
     id: "con-hotwork", sector: "construction", skill: "safety", type: "order", expectedSec: 35,
     payload: {
       title: "Before welding", prompt: "Put the steps in order before you start welding.",
-      options: [o("a", "Strike the arc", "⚡"), o("b", "Put on PPE", "🪖"), o("c", "Check the area for flammables", "🔍"), o("d", "Extinguisher within reach", "🧯")],
+      options: [o("a", "Strike the arc", "⚡"), o("b", "Put on PPE", "⛑️"), o("c", "Check the area for flammables", "🔍"), o("d", "Extinguisher within reach", "🧯")],
     },
     key: { value: ["c", "d", "b", "a"] },
     followUps: ["What counts as flammable on a site?", "Who do you tell before hot work starts?"],
@@ -152,8 +152,8 @@ const construction: TaskDef[] = [
     id: "con-tools", sector: "construction", skill: "procedural", type: "match", expectedSec: 30,
     payload: {
       title: "Tool for the job", prompt: "Match each tool to its job.",
-      left: [o("a", "Hammer", "🔨"), o("b", "Saw", "🪚"), o("c", "Tape measure", "📏"), o("d", "Screwdriver", "🪛")],
-      right: [o("x", "Cut timber"), o("y", "Screws"), o("z", "Nails"), o("v", "Measure length")],
+      left: [o("a", "Hammer", "🔨"), o("b", "Saw"), o("c", "Tape measure", "📏"), o("d", "Wrench", "🔧")],
+      right: [o("x", "Cut timber"), o("y", "Bolts"), o("z", "Nails"), o("v", "Measure length")],
     },
     key: { value: { a: "z", b: "x", c: "v", d: "y" } },
     followUps: ["Which tool do you use most?", "How do you check a tool is safe before use?"],
@@ -161,7 +161,7 @@ const construction: TaskDef[] = [
   {
     id: "con-ladder", sector: "construction", skill: "safety", type: "choice", expectedSec: 25,
     payload: {
-      title: "Ladder angle", emoji: "🪜", layout: "grid",
+      title: "Ladder angle", emoji: "🧱", layout: "grid",
       prompt: "A ladder reaches 4 m up a wall. How far from the wall should its foot be?",
       options: [o("a", "0.5 m"), o("b", "1 m"), o("c", "2 m"), o("d", "3 m")],
     },
