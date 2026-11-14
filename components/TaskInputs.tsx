@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Check, Plus, RotateCcw, X } from "lucide-react";
 import type { Answer, Option, TaskPayload, TaskType } from "@/lib/tasks";
 import { t, type Lang } from "@/lib/i18n";
 
@@ -22,9 +23,9 @@ function OptionFace({ option, big }: { option: Option; big?: boolean }) {
 
 function tileClass(selected: boolean, grid: boolean) {
   return [
-    "flex min-h-16 w-full items-center gap-3 border-2 px-4 py-3 text-left",
+    "flex min-h-16 w-full items-center gap-3 rounded-card border-2 px-4 py-3 text-left",
     grid ? "flex-col justify-center text-center" : "",
-    selected ? "border-brand-600 bg-brand-50" : "border-slate-200 bg-white",
+    selected ? "border-accent bg-fg/[0.06]" : "border-border bg-card",
   ].join(" ");
 }
 
@@ -54,8 +55,8 @@ function MultiInput({ options, layout, value = [], onChange }: InputProps<string
               const next = on ? value.filter((id) => id !== o.id) : [...value, o.id];
               onChange(next.length ? next : undefined, on);
             }}>
-            <span className={`absolute right-2 top-2 flex h-6 w-6 items-center justify-center border-2 text-sm font-bold ${on ? "border-brand-600 bg-brand-600 text-white" : "border-slate-300 bg-white"}`} aria-hidden>
-              {on ? "✓" : ""}
+            <span className={`absolute right-2 top-2 flex size-6 items-center justify-center rounded-[6px] border-2 ${on ? "border-accent bg-accent text-bg" : "border-border bg-card"}`} aria-hidden>
+              {on && <Check className="size-4" strokeWidth={3} />}
             </span>
             <OptionFace option={o} big={grid} />
           </button>
@@ -70,12 +71,12 @@ function OrderInput({ options, value = [], onChange, lang }: InputProps<string[]
   const remaining = options.filter((o) => !value.includes(o.id));
   return (
     <div className="flex flex-col gap-4">
-      <div className="bg-slate-100 p-3">
+      <div className="rounded-card border border-border bg-card p-3">
         <div className="mb-2 flex items-center justify-between px-1">
-          <span className="text-sm font-semibold text-slate-600">{t(lang, "yourOrder")}</span>
+          <span className="text-sm font-semibold text-muted">{t(lang, "yourOrder")}</span>
           {value.length > 0 && (
-            <button type="button" className="min-h-10 px-3 text-sm font-semibold text-brand-700" onClick={() => onChange(undefined, true)}>
-              ↺ {t(lang, "clear")}
+            <button type="button" className="inline-flex min-h-10 items-center gap-1.5 px-3 text-sm font-semibold" onClick={() => onChange(undefined, true)}>
+              <RotateCcw className="size-4" aria-hidden />{t(lang, "clear")}
             </button>
           )}
         </div>
@@ -85,15 +86,15 @@ function OrderInput({ options, value = [], onChange, lang }: InputProps<string[]
             return (
               <li key={i}>
                 {id ? (
-                  <button type="button" className="flex min-h-14 w-full items-center gap-3 border-2 border-brand-600 bg-white px-3 text-left"
+                  <button type="button" className="flex min-h-14 w-full items-center gap-3 rounded-tile border-2 border-accent bg-bg px-3 text-left"
                     onClick={() => onChange(value.filter((x) => x !== id).length ? value.filter((x) => x !== id) : undefined, true)}>
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center bg-brand-700 font-bold text-white">{i + 1}</span>
+                    <span className="flex size-8 shrink-0 items-center justify-center rounded-[8px] bg-accent font-bold text-bg">{i + 1}</span>
                     <OptionFace option={byId(id)} />
-                    <span className="ml-auto text-slate-400" aria-hidden>✕</span>
+                    <X className="ml-auto size-5 shrink-0 text-muted" aria-hidden />
                   </button>
                 ) : (
-                  <div className="flex min-h-14 items-center gap-3 border-2 border-dashed border-slate-300 px-3 text-slate-400">
-                    <span className="flex h-8 w-8 items-center justify-center bg-slate-200 font-bold">{i + 1}</span>
+                  <div className="flex min-h-14 items-center gap-3 rounded-tile border-2 border-dashed border-border px-3 text-muted">
+                    <span className="flex size-8 items-center justify-center rounded-[8px] bg-track font-bold">{i + 1}</span>
                   </div>
                 )}
               </li>
@@ -106,7 +107,7 @@ function OrderInput({ options, value = [], onChange, lang }: InputProps<string[]
           {remaining.map((o) => (
             <button key={o.id} type="button" className={tileClass(false, false)} onClick={() => onChange([...value, o.id], false)}>
               <OptionFace option={o} />
-              <span className="ml-auto text-2xl text-brand-600" aria-hidden>＋</span>
+              <Plus className="ml-auto size-6 shrink-0 text-muted" aria-hidden />
             </button>
           ))}
         </div>
@@ -147,9 +148,9 @@ function MatchInput({ left, right, value = {}, onChange }: InputProps<Record<str
           return (
             <button key={o.id} type="button" aria-pressed={isActive}
               onClick={() => setActive(isActive ? null : o.id)}
-              className={`relative flex min-h-20 flex-col items-center justify-center gap-1 border-2 px-2 py-2 text-center ${isActive ? "border-brand-600 bg-brand-50" : "border-slate-200 bg-white"}`}
+              className={`relative flex min-h-20 flex-col items-center justify-center gap-1 rounded-card border-2 px-2 py-2 text-center ${isActive ? "border-accent bg-fg/[0.06]" : "border-border bg-card"}`}
               style={paired && !isActive ? { borderColor: colorOf(o.id), background: `${colorOf(o.id)}14` } : undefined}>
-              <span className="absolute -left-2 -top-2 flex h-6 w-6 items-center justify-center text-xs font-bold text-white" style={{ background: colorOf(o.id) }}>
+              <span className="absolute -left-2 -top-2 flex size-6 items-center justify-center rounded-pill text-xs font-bold text-white" style={{ background: colorOf(o.id) }}>
                 {i + 1}
               </span>
               <OptionFace option={o} />
@@ -162,10 +163,10 @@ function MatchInput({ left, right, value = {}, onChange }: InputProps<Record<str
           const owner = leftFor(o.id);
           return (
             <button key={o.id} type="button" onClick={() => pick(o.id)}
-              className={`relative flex min-h-20 flex-col items-center justify-center gap-1 border-2 px-2 py-2 text-center ${active && !owner ? "border-dashed border-brand-600 bg-white" : "border-slate-200 bg-white"}`}
+              className={`relative flex min-h-20 flex-col items-center justify-center gap-1 rounded-card border-2 px-2 py-2 text-center ${active && !owner ? "border-dashed border-accent bg-card" : "border-border bg-card"}`}
               style={owner ? { borderColor: colorOf(owner), background: `${colorOf(owner)}14` } : undefined}>
               {owner && (
-                <span className="absolute -left-2 -top-2 flex h-6 w-6 items-center justify-center text-xs font-bold text-white" style={{ background: colorOf(owner) }}>
+                <span className="absolute -left-2 -top-2 flex size-6 items-center justify-center rounded-pill text-xs font-bold text-white" style={{ background: colorOf(owner) }}>
                   {left.findIndex((l) => l.id === owner) + 1}
                 </span>
               )}
@@ -181,7 +182,7 @@ function MatchInput({ left, right, value = {}, onChange }: InputProps<Record<str
 function NumberInput({ unit, value, onChange }: InputProps<number> & { unit?: string }) {
   const [text, setText] = useState(value === undefined ? "" : String(value));
   return (
-    <label className="flex items-center gap-3 border-2 border-slate-200 bg-white px-4 focus-within:border-brand-600">
+    <label className="flex items-center gap-3 rounded-card border-2 border-border bg-card px-4 focus-within:border-accent">
       <input
         type="text"
         inputMode="decimal"
@@ -193,11 +194,11 @@ function NumberInput({ unit, value, onChange }: InputProps<number> & { unit?: st
           const n = Number(raw.replace(",", "."));
           onChange(raw.trim() !== "" && Number.isFinite(n) ? n : undefined, false);
         }}
-        className="min-h-16 w-full bg-transparent text-3xl font-bold outline-none"
+        className="min-h-16 w-full bg-transparent text-3xl font-bold outline-none placeholder:text-muted/60"
         placeholder="0"
         aria-label="Answer"
       />
-      {unit && <span className="text-lg font-semibold text-slate-500">{unit}</span>}
+      {unit && <span className="text-lg font-semibold text-muted">{unit}</span>}
     </label>
   );
 }

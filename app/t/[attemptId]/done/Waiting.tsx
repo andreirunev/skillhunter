@@ -1,14 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { t, type Lang } from "@/lib/i18n";
+import { useLang } from "@/components/CandidateShell";
+import { t } from "@/lib/i18n";
 
 type Invitation = { code: string; qrSvg: string };
-type Props = { attemptId: string; lang: Lang; booth: string; companyName: string; initial: Invitation | null };
+type Props = { attemptId: string; booth: string; initial: Invitation | null };
 
 const POLL_MS = 5000;
 
-export function Waiting({ attemptId, lang, booth, companyName, initial }: Props) {
+// Finish screen. No score, no verdict: only "saved", then an invitation if a
+// recruiter sends one.
+export function Waiting({ attemptId, booth, initial }: Props) {
+  const lang = useLang();
   const [invitation, setInvitation] = useState<Invitation | null>(initial);
 
   // Polls only for "invited or not". The candidate never sees labels or notes.
@@ -23,40 +27,38 @@ export function Waiting({ attemptId, lang, booth, companyName, initial }: Props)
   }, [attemptId, invitation]);
 
   if (invitation) {
-    // Keyed so it mounts fresh and fades in when the poll brings the invitation.
+    // Keyed so it mounts fresh and fades in (200ms) when the poll brings it.
     return (
-      <main key="invited" className="mx-auto flex w-full max-w-md flex-1 animate-appear flex-col gap-3 px-4 py-6">
-        <section className="border border-slate-900 bg-slate-900 p-4 text-white">
-          <h1 className="text-2xl font-bold">{t(lang, "invitedTitle", { booth })}</h1>
-          <p className="mt-1 text-white/85">{companyName}</p>
+      <main key="invited" className="mx-auto flex w-full max-w-md flex-1 animate-appear flex-col gap-4 px-4 pb-8 pt-6">
+        <h1 className="text-[28px] font-bold leading-tight tracking-tight">{t(lang, "invitedTitle", { booth })}</h1>
+        <section className="flex flex-col items-center rounded-card border border-border bg-card p-5 text-center">
+          <p className="text-[13px] font-semibold text-muted">{t(lang, "showCode")}</p>
+          <p className="mt-2 font-mono text-5xl font-bold tracking-widest">{invitation.code}</p>
+          {/* QR stays dark-on-white in both themes so scanners read it. */}
+          <div className="mt-5 w-48 rounded-tile bg-white p-2" dangerouslySetInnerHTML={{ __html: invitation.qrSvg }} />
         </section>
-        <section className="border border-slate-200 bg-white p-4 text-center">
-          <p className="text-sm font-semibold text-slate-500">{t(lang, "showCode")}</p>
-          <p className="mt-2 font-mono text-5xl font-bold tracking-widest text-slate-900">{invitation.code}</p>
-          <div className="mx-auto mt-5 w-48" dangerouslySetInnerHTML={{ __html: invitation.qrSvg }} />
-        </section>
-        <p className="border border-slate-200 bg-white p-4 text-slate-700">{t(lang, "explain")}</p>
-        <p className="text-sm text-slate-500">{t(lang, "deleted")}</p>
+        <p className="text-sm">{t(lang, "explain")}</p>
+        <p className="text-[13px] text-muted">{t(lang, "deleted")}</p>
       </main>
     );
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-3 px-4 py-6">
-      <section className="border border-slate-200 bg-white p-4">
-        <h1 className="text-2xl font-bold">{t(lang, "doneTitle")}</h1>
-        <p className="mt-3 text-slate-600">{t(lang, "doneBody", { booth })}</p>
-        <div className="mt-4 flex items-center gap-3 border border-slate-200 bg-slate-50 p-3 font-semibold text-slate-900" role="status">
-          <span className="relative flex h-3 w-3">
-            <span className="absolute inline-flex h-full w-full animate-ping bg-slate-900 opacity-40 motion-reduce:animate-none" />
-            <span className="relative inline-flex h-3 w-3 bg-slate-900" />
+    <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 px-4 pb-8 pt-6">
+      <h1 className="text-[28px] font-bold leading-tight tracking-tight">{t(lang, "doneTitle")}</h1>
+      <section className="flex flex-col gap-3 rounded-card border border-border bg-card p-4">
+        <div className="flex items-center gap-3 font-semibold" role="status">
+          <span className="relative flex size-3">
+            <span className="absolute inline-flex size-full animate-ping rounded-pill bg-info opacity-50 motion-reduce:animate-none" />
+            <span className="relative inline-flex size-3 rounded-pill bg-info" />
           </span>
           {t(lang, "waiting")}
         </div>
-        <p className="mt-3 text-sm text-slate-500">{t(lang, "keepOpen")}</p>
+        <p className="text-sm text-muted">{t(lang, "doneBody", { booth })}</p>
+        <p className="text-sm text-muted">{t(lang, "keepOpen")}</p>
       </section>
-      <p className="border border-slate-200 bg-white p-4 text-slate-700">{t(lang, "noInviteNote")}</p>
-      <p className="text-sm text-slate-500">{t(lang, "deleted")}</p>
+      <p className="text-sm">{t(lang, "noInviteNote")}</p>
+      <p className="text-[13px] text-muted">{t(lang, "deleted")}</p>
     </main>
   );
 }

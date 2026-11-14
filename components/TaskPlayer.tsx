@@ -2,8 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useLang } from "@/components/CandidateShell";
 import { TaskInput } from "@/components/TaskInputs";
-import { AvatarBadge } from "@/components/Avatar";
 import { Spinner } from "@/components/Spinner";
 import { isAnswered, type Answer } from "@/lib/tasks";
 import { t, type MessageKey } from "@/lib/i18n";
@@ -13,7 +13,7 @@ type Props = { attempt: PlayerAttempt; tasks: PlayerTask[]; saved: SavedAnswer[]
 
 export function TaskPlayer({ attempt, tasks, saved }: Props) {
   const router = useRouter();
-  const lang = attempt.lang;
+  const lang = useLang();
   const savedById = Object.fromEntries(saved.map((s) => [s.task_id, s]));
 
   const [index, setIndex] = useState(() => {
@@ -104,59 +104,47 @@ export function TaskPlayer({ attempt, tasks, saved }: Props) {
   }
 
   const progress = Math.round(((index + (answered ? 1 : 0)) / tasks.length) * 100);
+  // Unanswered: the forward button skips (saves "no answer") and looks secondary.
+  const forwardLabel = answered ? t(lang, isLast ? "finish" : "next") : t(lang, "skip");
 
   return (
     <div className="mx-auto flex w-full max-w-md flex-1 flex-col">
-      <header className="sticky top-0 z-10 border-b border-slate-200 bg-[#f3f6fb] px-4 pb-3 pt-3">
-        <div className="flex items-center gap-3">
-          <AvatarBadge emoji={attempt.avatar_emoji} color={attempt.avatar_color} size="sm" />
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-semibold">{attempt.company_name}</p>
-            <p className="text-xs text-slate-500">{t(lang, "progress", { i: index + 1, n: tasks.length })}</p>
-          </div>
-          {attempt.own_pace && (
-            <span className="text-xs font-semibold text-slate-600">{t(lang, "ownPaceChip")}</span>
-          )}
+      <div className="px-4 pt-4">
+        <div className="flex items-center justify-between text-[13px] font-semibold text-muted">
+          <span>{t(lang, "progress", { i: index + 1, n: tasks.length })}</span>
         </div>
-        <div className="mt-3 h-2 overflow-hidden bg-slate-200" role="progressbar" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100}>
-          <div className="h-full bg-slate-900" style={{ width: `${progress}%` }} />
+        <div className="mt-2 h-1 overflow-hidden rounded-pill bg-track" role="progressbar" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100}>
+          <div className="h-full rounded-pill bg-accent transition-[width] duration-150" style={{ width: `${progress}%` }} />
         </div>
-      </header>
+      </div>
 
-      <main className="flex flex-1 flex-col gap-3 px-4 pb-32 pt-3">
-        <section className="border border-slate-200 bg-white p-4">
-          {task.payload.emoji && <div className="mb-3 text-center text-4xl leading-tight" aria-hidden>{task.payload.emoji}</div>}
-          <h1 className="text-xl font-bold leading-snug">{task.payload.prompt}</h1>
+      {/* Keyed by task: each new task fades in (150ms). */}
+      <main key={task.id} className="flex flex-1 animate-fade flex-col gap-4 px-4 pb-32 pt-5">
+        <section>
+          <h1 className="text-xl font-bold leading-snug">{task.payload.title}</h1>
+          {task.payload.emoji && <div className="mt-3 text-center text-4xl leading-tight" aria-hidden>{task.payload.emoji}</div>}
+          <p className="mt-3 text-base leading-relaxed">{task.payload.prompt}</p>
           {task.payload.code && (
-            <pre className="mt-4 overflow-x-auto bg-slate-900 p-4 font-mono text-sm leading-relaxed text-slate-100">{task.payload.code}</pre>
+            <pre className="mt-3 overflow-x-auto rounded-tile border border-border bg-card p-4 font-mono text-sm leading-relaxed">{task.payload.code}</pre>
           )}
-          <p className="mt-3 text-sm font-medium text-slate-500">{t(lang, `hint_${task.type}` as MessageKey)}</p>
+          <p className="mt-3 text-[13px] font-medium text-muted">{t(lang, `hint_${task.type}` as MessageKey)}</p>
         </section>
 
-        <TaskInput key={task.id} type={task.type} payload={task.payload} value={value} onChange={onChange} lang={lang} />
+        <TaskInput type={task.type} payload={task.payload} value={value} onChange={onChange} lang={lang} />
       </main>
 
-      <footer data-dock className="fixed inset-x-0 bottom-0 z-10 border-t border-slate-300 bg-white px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">
+      <footer className="fixed inset-x-0 bottom-0 z-10 border-t border-border bg-bg px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">
         <div className="mx-auto max-w-md">
-          {error && <p className="mb-2 text-center text-sm font-medium text-red-700" role="alert">{t(lang, "saveError")}</p>}
-          <div className="flex items-center gap-3">
-            {index > 0 && (
-              <button type="button" onClick={goBack} disabled={busy}
-                className="btn btn-secondary min-h-14 px-4 text-base">
-                ← {t(lang, "back")}
-              </button>
-            )}
-            {answered ? (
-              <button type="button" onClick={() => goNext(value as Answer)} disabled={busy} aria-busy={busy}
-                className="btn btn-primary min-h-14 flex-1 text-lg">
-                {busy ? <><Spinner />{t(lang, "saving")}</> : isLast ? `${t(lang, "finish")} ✓` : `${t(lang, "next")} →`}
-              </button>
-            ) : (
-              <button type="button" onClick={() => goNext(null)} disabled={busy} aria-busy={busy}
-                className="btn btn-secondary min-h-14 flex-1 text-base text-slate-600">
-                {busy ? <><Spinner />{t(lang, "saving")}</> : `${t(lang, "skip")} ${isLast ? "✓" : "→"}`}
-              </button>
-            )}
+          {error && <p className="mb-2 text-center text-sm font-medium text-bad" role="alert">{t(lang, "saveError")}</p>}
+          <div className="grid grid-cols-2 gap-3">
+            <button type="button" onClick={goBack} disabled={busy || index === 0}
+              className="ui-btn ui-btn-secondary min-h-14 text-base">
+              {t(lang, "back")}
+            </button>
+            <button type="button" onClick={() => goNext(answered ? (value as Answer) : null)} disabled={busy} aria-busy={busy}
+              className={`ui-btn min-h-14 text-base ${answered ? "ui-btn-primary" : "ui-btn-secondary"}`}>
+              {busy ? <><Spinner />{t(lang, "saving")}</> : forwardLabel}
+            </button>
           </div>
         </div>
       </footer>

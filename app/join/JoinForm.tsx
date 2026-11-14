@@ -1,10 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
+import { useLang } from "@/components/CandidateShell";
 import { Spinner } from "@/components/Spinner";
+import { t } from "@/lib/i18n";
 
 // Plain POST form: works without JS, and the server burns the code on entry.
-export function JoinForm({ initialCode, error }: { initialCode: string; error: string }) {
+export function JoinForm({ initialCode, error, continueHref }: {
+  initialCode: string;
+  error: "used" | "missing" | null;
+  continueHref: string | null;
+}) {
+  const lang = useLang();
   // Controlled, so the code stays in the box after an error and can be fixed.
   const [code, setCode] = useState(initialCode);
   const [pending, setPending] = useState(false);
@@ -17,35 +25,41 @@ export function JoinForm({ initialCode, error }: { initialCode: string; error: s
   }, []);
 
   return (
-    <form method="post" action="/api/join" onSubmit={() => setPending(true)} className="flex flex-col gap-3">
-      <label htmlFor="code" className="text-sm font-semibold text-slate-700">Booth code</label>
-      <input
-        id="code"
-        name="code"
-        value={code}
-        onChange={(e) => setCode(e.target.value.toUpperCase())}
-        type="text"
-        inputMode="text"
-        autoCapitalize="off"
-        autoCorrect="off"
-        autoComplete="off"
-        spellCheck={false}
-        maxLength={12}
-        placeholder="UQE6CRCP"
-        required
-        aria-invalid={Boolean(error)}
-        aria-describedby="code-error"
-        className="min-h-14 border border-slate-400 bg-white px-4 text-center font-mono text-3xl font-bold tracking-[0.2em] outline-none placeholder:text-slate-300 focus:border-slate-900"
-      />
-      <p id="code-error" aria-live="polite" className="min-h-5 text-sm font-medium text-red-700">{error}</p>
-      <button
-        type="submit"
-        disabled={pending}
-        aria-busy={pending}
-        className="btn btn-primary min-h-12 text-base"
-      >
-        {pending ? <><Spinner />Checking…</> : "Start"}
-      </button>
-    </form>
+    <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 px-4 pb-8 pt-6">
+      <div>
+        <h1 className="text-[28px] font-bold leading-tight tracking-tight">{t(lang, "joinTitle")}</h1>
+        <p className="mt-1 text-[15px] text-muted">{t(lang, "joinHint")}</p>
+      </div>
+      <form method="post" action="/api/join" onSubmit={() => setPending(true)} className="flex flex-col gap-3">
+        <label htmlFor="code" className="text-sm font-semibold">{t(lang, "codeLabel")}</label>
+        <input
+          id="code"
+          name="code"
+          value={code}
+          onChange={(e) => setCode(e.target.value.toUpperCase())}
+          type="text"
+          inputMode="text"
+          autoCapitalize="off"
+          autoCorrect="off"
+          autoComplete="off"
+          spellCheck={false}
+          maxLength={12}
+          placeholder="UQE6CRCP"
+          required
+          aria-invalid={Boolean(error)}
+          aria-describedby="code-error"
+          className="min-h-16 rounded-card border border-border bg-card px-4 text-center font-mono text-3xl font-bold tracking-[0.2em] text-fg outline-none placeholder:text-muted/50 focus:border-fg/40"
+        />
+        <p id="code-error" aria-live="polite" className="min-h-5 text-sm font-medium text-bad">
+          {error === "missing" ? t(lang, "joinMissing") : error === "used" ? t(lang, "joinUsed") : ""}
+        </p>
+        <button type="submit" disabled={pending} aria-busy={pending} className="ui-btn ui-btn-primary min-h-14 text-lg">
+          {pending ? <><Spinner />{t(lang, "checking")}</> : t(lang, "start")}
+        </button>
+      </form>
+      {continueHref && (
+        <Link href={continueHref} className="ui-btn ui-btn-secondary min-h-12 text-base">{t(lang, "joinMine")}</Link>
+      )}
+    </main>
   );
 }

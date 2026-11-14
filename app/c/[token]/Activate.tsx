@@ -1,26 +1,27 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { AvatarBadge } from "@/components/Avatar";
+import { useLang } from "@/components/CandidateShell";
 import { Spinner } from "@/components/Spinner";
-import { makeAvatar, type Avatar } from "@/lib/avatar";
-import { LANGS, LANG_NAMES, t, type Lang } from "@/lib/i18n";
+import { AvatarTile } from "@/components/ui/ListRow";
+import type { Avatar } from "@/lib/avatar";
+import { t } from "@/lib/i18n";
 
 type Props = {
   token: string;
   state: "ready" | "invalid" | "expired";
-  initialAvatar: Avatar;
-  company: { name: string; booth: string; color: string; testTitle: string } | null;
+  avatar: Avatar;
   taskCount: number;
   minutes: number;
 };
 
-export function Activate({ token, state, initialAvatar, company, taskCount, minutes }: Props) {
+// Start screen. The avatar was assigned when the code was entered and cannot
+// be changed here. Time is always recorded (no own-pace switch).
+export function Activate({ token, state, avatar, taskCount, minutes }: Props) {
   const router = useRouter();
-  const [lang, setLang] = useState<Lang>("en");
-  const [avatar, setAvatar] = useState(initialAvatar);
-  const [ownPace, setOwnPace] = useState(false);
+  const lang = useLang();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -30,7 +31,7 @@ export function Activate({ token, state, initialAvatar, company, taskCount, minu
     const res = await fetch("/api/activate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token, ...avatar, lang, ownPace }),
+      body: JSON.stringify({ token, ...avatar, lang, ownPace: false }),
     }).catch(() => null);
     const data = res?.ok ? await res.json() : null;
     if (!data?.attemptId) {
@@ -41,105 +42,41 @@ export function Activate({ token, state, initialAvatar, company, taskCount, minu
     router.push(`/t/${data.attemptId}`);
   }
 
-  const languagePicker = (
-    <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label={t(lang, "language")}>
-      {LANGS.map((l) => (
-        <button
-          key={l}
-          type="button"
-          role="radio"
-          aria-checked={lang === l}
-          onClick={() => setLang(l)}
-          className={`min-h-11 border text-sm font-semibold ${
-            lang === l ? "border-slate-900 bg-slate-900 text-white" : "border-slate-400 bg-white text-slate-700"
-          }`}
-        >
-          {LANG_NAMES[l]}
-        </button>
-      ))}
-    </div>
-  );
-
-  if (state !== "ready" || !company) {
+  if (state !== "ready") {
     return (
-      <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-3 px-4 py-8">
-        {languagePicker}
-        <div className="border border-slate-200 bg-white p-4">
-          <p className="text-lg font-semibold">{t(lang, state === "ready" ? "invalid" : state)}</p>
-        </div>
+      <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 px-4 pb-8 pt-6">
+        <p className="rounded-card border border-border bg-card p-4 text-lg font-semibold">
+          {t(lang, state)}
+        </p>
+        <Link href="/join" className="ui-btn ui-btn-primary min-h-12 text-base">{t(lang, "enterCode")}</Link>
       </main>
     );
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-3 px-4 pb-28 pt-4">
-      <header className="border border-slate-200 bg-white">
-        <div className="h-2" style={{ background: company.color }} />
-        <div className="p-4">
-          <p className="text-sm font-medium text-slate-500">SkillScan · Booth {company.booth}</p>
-          <h1 className="mt-1 text-2xl font-bold tracking-tight">{company.name}</h1>
-          <p className="mt-1 text-slate-600">{company.testTitle}</p>
-          <p className="mt-2 text-sm text-slate-600">
-            {t(lang, "minutes", { min: minutes })} · {t(lang, "tasks", { n: taskCount })}
-          </p>
-        </div>
-      </header>
-
-      {languagePicker}
-
-      <section className="flex items-center gap-3 border border-slate-200 bg-white p-4">
-        <AvatarBadge emoji={avatar.emoji} color={avatar.color} size="lg" />
-        <div className="min-w-0 flex-1">
-          <p className="text-sm text-slate-500">{t(lang, "yourAvatar")}</p>
-          <p className="truncate text-xl font-bold">{avatar.name}</p>
-          <button
-            type="button"
-            onClick={() => setAvatar(makeAvatar())}
-            className="btn btn-secondary mt-2"
-          >
-            {t(lang, "newAvatar")}
-          </button>
-        </div>
-      </section>
-
-      <label className="flex cursor-pointer items-center gap-3 border border-slate-200 bg-white p-4">
-        <input
-          type="checkbox"
-          checked={ownPace}
-          onChange={(e) => setOwnPace(e.target.checked)}
-          className="peer sr-only"
-        />
-        <span className="relative h-8 w-14 shrink-0 bg-slate-300 transition peer-checked:bg-leaf-600 peer-focus-visible:ring-4 peer-focus-visible:ring-brand-100 after:absolute after:left-1 after:top-1 after:h-6 after:w-6 after:bg-white after:transition peer-checked:after:translate-x-6" />
-        <span>
-          <span className="block font-semibold">{t(lang, "ownPace")}</span>
-          <span className="block text-sm text-slate-500">{t(lang, "ownPaceHint")}</span>
-        </span>
-      </label>
-
-      <section className="border border-slate-200 bg-white p-4 text-sm text-slate-700">
-        <h2 className="font-semibold text-slate-900">{t(lang, "privacyTitle")}</h2>
-        <ul className="mt-2 space-y-1.5">
-          <li>✓ {t(lang, "privacy1")}</li>
-          <li>✓ {t(lang, "privacy2")}</li>
-          <li>✓ {t(lang, "privacy3")}</li>
-          <li>✓ {t(lang, "privacy4")}</li>
-        </ul>
-      </section>
-
-      <div data-dock className="fixed inset-x-0 bottom-0 border-t border-slate-300 bg-white px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">
-        <div className="mx-auto max-w-md">
-          {error && <p className="mb-2 text-center text-sm font-medium text-red-700" role="alert">{error}</p>}
-          <button
-            type="button"
-            onClick={start}
-            disabled={busy}
-            aria-busy={busy}
-            className="btn btn-primary min-h-14 w-full text-lg"
-          >
-            {busy ? <><Spinner />{t(lang, "saving")}</> : `${t(lang, "start")} →`}
-          </button>
-        </div>
+    <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 px-4 pb-8 pt-6">
+      <div>
+        <h1 className="text-[28px] font-bold leading-tight tracking-tight">{t(lang, "yourTest")}</h1>
+        <p className="mt-1 text-[15px] text-muted">
+          {t(lang, "minutes", { min: minutes })} · {t(lang, "tasks", { n: taskCount })}
+        </p>
       </div>
+
+      <p className="text-sm text-muted">{t(lang, "privacyLine")}</p>
+
+      <section className="flex items-center gap-4 rounded-card border border-border bg-card p-4">
+        <AvatarTile emoji={avatar.emoji} color={avatar.color} size={64} />
+        <div className="min-w-0">
+          <p className="text-[13px] text-muted">{t(lang, "yourAvatar")}</p>
+          <p className="truncate text-xl font-bold">{avatar.name}</p>
+        </div>
+      </section>
+
+      {error && <p className="text-center text-sm font-medium text-bad" role="alert">{error}</p>}
+      <button type="button" onClick={start} disabled={busy} aria-busy={busy}
+        className="ui-btn ui-btn-primary min-h-14 w-full text-lg">
+        {busy ? <><Spinner />{t(lang, "saving")}</> : t(lang, "start")}
+      </button>
     </main>
   );
 }

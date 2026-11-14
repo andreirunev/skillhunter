@@ -1,11 +1,17 @@
+import type { Viewport } from "next";
 import { redirect } from "next/navigation";
 import { getTokenView } from "@/lib/data";
 import { deviceHash } from "@/lib/device";
 import { makeAvatar } from "@/lib/avatar";
+import { cookieLang } from "@/lib/lang";
+import { SKIN_THEME_COLOR } from "@/lib/theme";
+import { CandidateShell } from "@/components/CandidateShell";
 import { OtherDevice } from "@/components/OtherDevice";
 import { Activate } from "./Activate";
 
 export const dynamic = "force-dynamic";
+
+export const viewport: Viewport = { themeColor: SKIN_THEME_COLOR };
 
 // Seeded from the token so the server and the browser render the same avatar.
 function seededRand(text: string) {
@@ -31,13 +37,14 @@ export default async function ActivatePage(props: PageProps<"/c/[token]">) {
     ? { name: view.avatar_name, emoji: view.avatar_emoji, color: view.avatar_color }
     : makeAvatar(seededRand(token));
   return (
-    <Activate
-      token={token}
-      state={!view ? "invalid" : ready ? "ready" : "expired"}
-      initialAvatar={avatar}
-      company={ready && view ? { name: view.company_name, booth: view.booth, color: view.color, testTitle: view.test_title } : null}
-      taskCount={view?.task_count ?? 0}
-      minutes={Math.max(1, Math.round((view?.expected_sec ?? 0) / 60))}
-    />
+    <CandidateShell lang={(await cookieLang()) ?? "en"} company={ready && view ? { name: view.company_name, booth: view.booth } : null}>
+      <Activate
+        token={token}
+        state={!view ? "invalid" : ready ? "ready" : "expired"}
+        avatar={avatar}
+        taskCount={view?.task_count ?? 0}
+        minutes={Math.max(1, Math.round((view?.expected_sec ?? 0) / 60))}
+      />
+    </CandidateShell>
   );
 }

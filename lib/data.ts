@@ -71,15 +71,11 @@ export async function ownsAttempt(attemptId: string, ownerHash: string | null): 
   return rows.length > 0;
 }
 
-// Avatar, language and own pace, set by the owning device before the first task.
-export async function setupAttempt(
-  token: string,
-  ownerHash: string,
-  input: { name: string; emoji: string; color: string; lang: Lang; ownPace: boolean },
-): Promise<string | null> {
+// UI language, set by the owning device before it finishes. The avatar stays
+// the one assigned at entry and own pace stays off: time is always counted.
+export async function setupAttempt(token: string, ownerHash: string, lang: Lang): Promise<string | null> {
   const [row] = await db()<{ id: string }[]>`
-    UPDATE attempts a SET avatar_name = ${input.name}, avatar_emoji = ${input.emoji},
-      avatar_color = ${input.color}, lang = ${input.lang}, own_pace = ${input.ownPace}
+    UPDATE attempts a SET lang = ${lang}, own_pace = false
     FROM qr_tokens q
     WHERE q.token = ${token} AND a.id = q.attempt_id AND a.owner_hash = ${ownerHash} AND a.finished_at IS NULL
     RETURNING a.id`;
