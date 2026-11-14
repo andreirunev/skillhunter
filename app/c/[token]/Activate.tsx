@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useLang } from "@/components/CandidateShell";
 import { Spinner } from "@/components/Spinner";
 import { AvatarTile } from "@/components/ui/ListRow";
+import { joinSep } from "@/components/ui/Sep";
 import type { Avatar } from "@/lib/avatar";
 import { t } from "@/lib/i18n";
 
@@ -59,7 +60,7 @@ export function Activate({ token, state, avatar, taskCount, minutes, limitMinute
       <div>
         <h1 className="text-[28px] font-bold leading-tight tracking-tight">{t(lang, "yourTest")}</h1>
         <p className="mt-1 text-[15px] text-muted">
-          {t(lang, "minutes", { min: minutes })} · {t(lang, "tasks", { n: taskCount })} · {t(lang, "limit", { min: limitMinutes })}
+          {joinSep([t(lang, "minutes", { min: minutes }), t(lang, "tasks", { n: taskCount }), t(lang, "limit", { min: limitMinutes })])}
         </p>
       </div>
 

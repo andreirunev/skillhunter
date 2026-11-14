@@ -15,7 +15,7 @@ export function ScreenTitle({ title, help }: { title: string; help?: { href: str
   );
 }
 
-// Small caps grey label above a list, e.g. "Needs your call · 3".
+// Small caps grey label above a list, e.g. "Needs your call" <Sep /> "3".
 export function SectionLabel({ children }: { children: ReactNode }) {
   return <h2 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted">{children}</h2>;
 }

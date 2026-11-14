@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { CircleDot, Handshake, Lock, Send, ThumbsUp } from "lucide-react";
 import { FilterPills } from "@/components/ui/FilterPills";
@@ -8,6 +8,7 @@ import { BigCode } from "@/components/ui/BigCode";
 import { AvatarTile, ListRow } from "@/components/ui/ListRow";
 import { SectionLabel } from "@/components/ui/ScreenTitle";
 import { SearchInput } from "@/components/ui/SearchInput";
+import { joinSep } from "@/components/ui/Sep";
 import { Segmented } from "@/components/ui/Segmented";
 import { StatCard } from "@/components/ui/StatCard";
 import { STATUS_TEXT, StatusPill } from "@/components/ui/StatusPill";
@@ -21,7 +22,7 @@ export type CandidateItem = {
   color: string;
   status: Status;
   finishedAt: number | null;
-  sub: string;
+  sub: string[]; // facts, shown with dividers between them
   inviteCode: string | null;
   contact: Contact | null; // set only once the candidate shared details with consent
 };
@@ -95,13 +96,13 @@ export function CandidatesView({ slug, items }: { slug: string; items: Candidate
       <SearchInput label="Search candidates" placeholder="Search name or booth code" value={query} onChange={setQuery} />
       <FilterPills label="Filter by status" options={FILTERS} value={filter} onChange={setFilter} />
 
-      {needs.length > 0 && <Section label={`Needs your call · ${needs.length}`} slug={slug} items={needs} />}
-      {(rest.length > 0 || needs.length === 0) && <Section label={`${restLabel} · ${rest.length}`} slug={slug} items={rest} />}
+      {needs.length > 0 && <Section label={joinSep(["Needs your call", needs.length])} slug={slug} items={needs} />}
+      {(rest.length > 0 || needs.length === 0) && <Section label={joinSep([restLabel, rest.length])} slug={slug} items={rest} />}
     </>
   );
 }
 
-function Section({ label, slug, items }: { label: string; slug: string; items: CandidateItem[] }) {
+function Section({ label, slug, items }: { label: ReactNode; slug: string; items: CandidateItem[] }) {
   return (
     <section className="flex flex-col gap-3">
       <SectionLabel>{label}</SectionLabel>
@@ -111,7 +112,7 @@ function Section({ label, slug, items }: { label: string; slug: string; items: C
         <ul className="flex flex-col gap-3">
           {items.map((c) => (
             <li key={c.id}>
-              {c.contact ? <IdentifiedRow slug={slug} item={c} contact={c.contact} /> : <ListRow href={`/r/${slug}/a/${c.id}`} title={c.name} sub={c.sub}
+              {c.contact ? <IdentifiedRow slug={slug} item={c} contact={c.contact} /> : <ListRow href={`/r/${slug}/a/${c.id}`} title={c.name} sub={joinSep(c.sub)}
                 leading={<AvatarTile emoji={c.emoji} color={c.color} />}
                 meta={c.inviteCode && <BigCode code={c.inviteCode} />}
                 trailing={<StatusPill status={c.status} />} />}
@@ -132,7 +133,7 @@ function IdentifiedRow({ slug, item: c, contact }: { slug: string; item: Candida
         <p className="truncate text-base font-semibold leading-snug">{contact.full_name}</p>
         {contact.phone && <p className="mt-0.5 truncate text-sm">{contact.phone}</p>}
         {contact.email && <p className="mt-0.5 truncate text-sm">{contact.email}</p>}
-        <p className="mt-1 truncate text-[13px] text-muted">{c.name} · {c.sub}</p>
+        <p className="mt-1 truncate text-[13px] text-muted">{joinSep([c.name, ...c.sub])}</p>
       </div>
       <div className="shrink-0"><StatusPill status={c.status} /></div>
     </Link>

@@ -1,4 +1,5 @@
 import { formatCode, TICKET_LABEL, type TicketTemplate } from "@/lib/tickets";
+import { joinSep } from "@/components/ui/Sep";
 
 // One 95 x 55 mm booth ticket, black on white (styles: .tk-* in globals.css).
 // Used by the A4 print view and the template editor preview.
@@ -15,10 +16,10 @@ export function Ticket({ template: t, tasks, code, url, qrSvg }: {
         <span className="tk-company">{t.companyName}</span>
         <span className="tk-booth">Booth {t.booth}</span>
       </div>
-      <p className="tk-label">{TICKET_LABEL}</p>
+      <p className="tk-label">{joinSep(TICKET_LABEL)}</p>
       <div className="tk-main">
         <div className="tk-left">
-          <p className="tk-info">{t.sector} · {tasks} tasks · {t.duration}</p>
+          <p className="tk-info">{joinSep([t.sector, `${tasks} tasks`, t.duration])}</p>
           <p className="tk-code">{formatCode(code)}</p>
           <p className="tk-url">Scan, or type the code at {url.replace(/^https?:\/\//, "").replace(/\?.*$/, "")}</p>
         </div>

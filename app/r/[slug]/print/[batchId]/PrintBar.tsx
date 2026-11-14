@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import Link from "next/link";
+import { joinSep } from "@/components/ui/Sep";
 
 // Screen-only bar above the sheets (hidden when printing). With ?auto=1 (from
 // "Create and print") the print dialog opens by itself once.
@@ -24,8 +25,11 @@ export function PrintBar({ backHref, tickets, sheets, skipped, auto }: {
         Back
       </Link>
       <p className="flex-1">
-        {tickets} ticket{tickets === 1 ? "" : "s"} · {sheets} A4 sheet{sheets === 1 ? "" : "s"}
-        {skipped > 0 && ` · ${skipped} taken code${skipped === 1 ? "" : "s"} left out`}
+        {joinSep([
+          `${tickets} ticket${tickets === 1 ? "" : "s"}`,
+          `${sheets} A4 sheet${sheets === 1 ? "" : "s"}`,
+          skipped > 0 && `${skipped} taken code${skipped === 1 ? "" : "s"} left out`,
+        ])}
         <span className="block text-slate-600">Print at 100% scale (no &quot;fit to page&quot;), then cut along the dashed lines.</span>
       </p>
       <button type="button" onClick={() => window.print()} disabled={tickets === 0}

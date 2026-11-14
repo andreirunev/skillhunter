@@ -6,6 +6,7 @@ import { Check, Ellipsis } from "lucide-react";
 import { useCandidateStatus } from "@/components/CandidateStatus";
 import { Spinner } from "@/components/Spinner";
 import { ActionSheet } from "@/components/ui/ActionSheet";
+import { joinSep } from "@/components/ui/Sep";
 import { STATUS_TEXT } from "@/components/ui/StatusPill";
 import { toast } from "@/components/ui/Toast";
 import type { Status } from "@/lib/recruiter";
@@ -24,14 +25,14 @@ const LABELS: { status: Status; label: string }[] = [
 type Busy = "invite" | "start" | "next" | "close" | "status";
 type Confirm = { to: RecruiterStage; from: Stage; busy: Busy };
 
-function infoFor(stage: Stage, code: string | null): string {
+function infoFor(stage: Stage, code: string | null): ReactNode {
   switch (stage) {
-    case "mini_interview": return "Short interview started · your call on the next step";
+    case "mini_interview": return joinSep(["Short interview started", "your call on the next step"]);
     case "contact_requested": return "Waiting for candidate details";
-    case "closed": return "Not this time · the candidate sees a polite thank-you";
-    case "full_interview": return "Contact details received · see Identified";
+    case "closed": return joinSep(["Not this time", "the candidate sees a polite thank-you"]);
+    case "full_interview": return joinSep(["Contact details received", "see Identified"]);
     case "contact_declined": return "The candidate chose not to share details";
-    default: return code ? "Invited · type the code from the candidate's phone" : "Your call. Nothing is decided automatically.";
+    default: return code ? joinSep(["Invited", "type the code from the candidate's phone"]) : "Your call. Nothing is decided automatically.";
   }
 }
 
@@ -207,7 +208,7 @@ export function ActionBar() {
         </div>
       </div>
 
-      <ActionSheet open={statusSheet} title="Set status · your call" onClose={closeStatus}>
+      <ActionSheet open={statusSheet} title={joinSep(["Set status", "your call"])} onClose={closeStatus}>
         {LABELS.map((a) => {
           const on = status === a.status;
           return (

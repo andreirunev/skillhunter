@@ -33,12 +33,12 @@ export default async function CandidatesPage(props: PageProps<"/r/[slug]">) {
     status: c.status,
     finishedAt: c.finished_at?.getTime() ?? null,
     sub: [
-      ...(STAGE_NOTE[c.stage] ? [STAGE_NOTE[c.stage]] : []),
-      c.finished_at
-        ? `Finished ${formatClock(c.finished_at)} · ${formatMinutes(c.total_ms)}${c.limit_reached ? " · limit reached" : ""}`
-        : `In progress · ${c.answered}/${company.task_count} tasks`,
+      ...(STAGE_NOTE[c.stage] ? [STAGE_NOTE[c.stage]!] : []),
+      ...(c.finished_at
+        ? [`Finished ${formatClock(c.finished_at)}`, formatMinutes(c.total_ms), ...(c.limit_reached ? ["limit reached"] : [])]
+        : ["In progress", `${c.answered}/${company.task_count} tasks`]),
       LANG_SHORT[c.lang] ?? c.lang,
-    ].join(" · "),
+    ],
     inviteCode: c.invite_code,
     contact: c.stage === "full_interview" ? c.contact : null,
   }));

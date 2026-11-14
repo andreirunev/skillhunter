@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Check } from "lucide-react";
 import { SectionLabel, ScreenTitle } from "@/components/ui/ScreenTitle";
+import { joinSep } from "@/components/ui/Sep";
 import { getCompany, isDemoMode } from "@/lib/recruiter";
 import { ResetDemo } from "./ResetDemo";
 
@@ -35,7 +36,7 @@ export default async function AboutPage(props: PageProps<"/r/[slug]/about">) {
       <section className="rounded-card border border-border bg-card p-4">
         <p className="font-semibold">{company.test_title}</p>
         <p className="mt-0.5 text-[13px] text-muted">
-          {company.task_count} tasks · ≈ {Math.max(1, Math.round(company.expected_sec / 60))} min
+          {joinSep([`${company.task_count} tasks`, `≈ ${Math.max(1, Math.round(company.expected_sec / 60))} min`])}
         </p>
       </section>
 

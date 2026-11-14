@@ -108,22 +108,22 @@ export function matchesKey(type: TaskType, answer: Answer, key: AnswerKey): bool
 
 const optionText = (o?: Option) => (o ? [o.emoji, o.label].filter(Boolean).join(" ") : "?");
 
-// Human-readable answer (or key) for the recruiter screen.
-export function describeAnswer(type: TaskType, payload: TaskPayload, answer: Answer): string {
-  if (answer === null || answer === undefined) return "Skipped";
+// Human-readable answer (or key) for the recruiter screen, as parts the page
+// shows with dividers between them (one part per pair for "match").
+export function describeAnswer(type: TaskType, payload: TaskPayload, answer: Answer): string[] {
+  if (answer === null || answer === undefined) return ["Skipped"];
   const find = (list: Option[] | undefined, id: string) => optionText(list?.find((o) => o.id === id));
   switch (type) {
     case "choice":
-      return find(payload.options, answer as string);
+      return [find(payload.options, answer as string)];
     case "multi":
-      return (answer as string[]).map((id) => find(payload.options, id)).join(", ");
+      return [(answer as string[]).map((id) => find(payload.options, id)).join(", ")];
     case "order":
-      return (answer as string[]).map((id, i) => `${i + 1}. ${find(payload.options, id)}`).join("  ");
+      return [(answer as string[]).map((id, i) => `${i + 1}. ${find(payload.options, id)}`).join("  ")];
     case "match":
       return Object.entries(answer as Record<string, string>)
-        .map(([l, r]) => `${find(payload.left, l)} → ${find(payload.right, r)}`)
-        .join(" · ");
+        .map(([l, r]) => `${find(payload.left, l)} → ${find(payload.right, r)}`);
     case "number":
-      return `${answer}${payload.unit ? ` ${payload.unit}` : ""}`;
+      return [`${answer}${payload.unit ? ` ${payload.unit}` : ""}`];
   }
 }

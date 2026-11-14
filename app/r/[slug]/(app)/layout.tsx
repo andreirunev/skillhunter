@@ -1,6 +1,7 @@
 import type { Viewport } from "next";
 import { notFound } from "next/navigation";
 import { BottomTabs } from "@/components/ui/BottomTabs";
+import { joinSep } from "@/components/ui/Sep";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { Toast } from "@/components/ui/Toast";
 import { getCompany } from "@/lib/recruiter";
@@ -22,7 +23,7 @@ export default async function RecruiterLayout({ children, params }: LayoutProps<
       <div className="mx-auto w-full max-w-[720px] flex-1 px-4 pb-[calc(var(--tabbar)_+_6rem)] pt-3 lg:pb-24 lg:pt-6">
         <div className="flex items-center justify-between gap-3">
           <p className="min-w-0 truncate text-[11px] font-semibold uppercase tracking-[0.08em] text-muted">
-            {company.name} · Booth {company.booth}
+            {joinSep([company.name, `Booth ${company.booth}`])}
           </p>
           <ThemeToggle />
         </div>

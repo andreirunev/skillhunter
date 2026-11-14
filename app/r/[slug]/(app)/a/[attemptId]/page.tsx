@@ -6,6 +6,7 @@ import { CandidateCode, CandidateStatusProvider, DetailTopBar } from "@/componen
 import { FlagRow } from "@/components/Flags";
 import { TaskNotes } from "@/components/TaskNotes";
 import { AvatarTile } from "@/components/ui/ListRow";
+import { joinSep } from "@/components/ui/Sep";
 import { getCandidate, getCompany, type DetailTask } from "@/lib/recruiter";
 import { describeAnswer, GENERIC_FOLLOW_UPS, SKILLS, TYPE_LABELS } from "@/lib/tasks";
 import { formatClock, formatDuration, formatMinutes, LANG_SHORT } from "@/lib/format";
@@ -36,13 +37,13 @@ export default async function CandidatePage(props: PageProps<"/r/[slug]/a/[attem
             <AvatarTile emoji={attempt.avatar_emoji} color={attempt.avatar_color} size={32} />
             <p className="min-w-0 truncate text-sm font-semibold">{attempt.avatar_name}</p>
             <span className="ml-auto shrink-0 text-[13px] text-muted">
-              {LANG_SHORT[attempt.lang] ?? attempt.lang} · limit {TIME_LIMIT_MINUTES} min
+              {joinSep([LANG_SHORT[attempt.lang] ?? attempt.lang, `limit ${TIME_LIMIT_MINUTES} min`])}
             </span>
           </div>
           <CandidateCode />
           {attempt.contact && (
             <div className="flex flex-col gap-1 rounded-tile bg-bg p-3">
-              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted">Contact · shared by the candidate</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted">{joinSep(["Contact", "shared by the candidate"])}</p>
               <p className="text-base font-semibold">{attempt.contact.full_name}</p>
               {attempt.contact.phone && <a href={`tel:${attempt.contact.phone.replace(/[^\d+]/g, "")}`} className="text-base text-info">{attempt.contact.phone}</a>}
               {attempt.contact.email && <a href={`mailto:${attempt.contact.email}`} className="break-all text-base text-info">{attempt.contact.email}</a>}
@@ -57,7 +58,7 @@ export default async function CandidatePage(props: PageProps<"/r/[slug]/a/[attem
           </dl>
           <p className={`flex items-center gap-2 text-sm font-semibold ${flagCount ? "text-warn" : "text-muted"}`}>
             <Flag className="size-4 shrink-0" aria-hidden />
-            {flagCount ? `${flagCount} flag${flagCount === 1 ? "" : "s"} · review below` : "No flags fired"}
+            {flagCount ? joinSep([`${flagCount} flag${flagCount === 1 ? "" : "s"}`, "review below"]) : "No flags fired"}
           </p>
           <p className="text-[13px] text-muted">
             Flags are three plain rules (very fast, took longer, changed 3+ times), not AI. They never lower anything.
@@ -100,13 +101,13 @@ function TaskCard({ task: t, index, attemptId, finished, limitReached }: {
   const skipped = t.answered && t.answer === null;
   const hasAnswer = t.answered && !skipped;
   const chip = hasAnswer ? "Answered" : skipped ? "Skipped" : !finished ? "Pending" : limitReached ? "Time up" : "Not answered";
-  const empty = skipped ? "Skipped" : !finished ? "Not answered yet" : limitReached ? "Not answered · Time up" : "Not answered";
+  const empty = skipped ? "Skipped" : !finished ? "Not answered yet" : limitReached ? joinSep(["Not answered", "Time up"]) : "Not answered";
 
   return (
     <article className="flex flex-col gap-3 rounded-card border border-border bg-card p-3">
       <div className="flex items-center gap-2.5">
         <span className="flex size-7 shrink-0 items-center justify-center rounded-[2px] bg-fg/10 text-sm font-bold tabular-nums">{index + 1}</span>
-        <p className="min-w-0 flex-1 text-sm font-semibold">{SKILLS[t.skill]} · {TYPE_LABELS[t.type]}</p>
+        <p className="min-w-0 flex-1 text-sm font-semibold">{joinSep([SKILLS[t.skill], TYPE_LABELS[t.type]])}</p>
         <span className={`inline-flex h-6 shrink-0 items-center rounded-pill px-2.5 text-xs font-semibold ${hasAnswer ? "border border-border text-muted" : "bg-fg/10 text-fg/70"}`}>
           {chip}
         </span>
@@ -123,7 +124,7 @@ function TaskCard({ task: t, index, attemptId, finished, limitReached }: {
       {hasAnswer ? (
         <div className="flex flex-col gap-1.5">
           <p className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
-            <span className="text-base font-semibold">{describeAnswer(t.type, t.payload, t.answer)}</span>
+            <span className="text-base font-semibold">{joinSep(describeAnswer(t.type, t.payload, t.answer))}</span>
             {t.matches_key ? (
               <span className="inline-flex h-6 items-center gap-1 rounded-pill bg-ok/15 px-2.5 text-xs font-semibold text-ok">
                 <Check className="size-3.5" strokeWidth={2.75} aria-hidden />Matches key
@@ -135,7 +136,7 @@ function TaskCard({ task: t, index, attemptId, finished, limitReached }: {
             )}
           </p>
           {!t.matches_key && (
-            <p className="text-sm text-muted">Key: <span className="font-semibold text-fg">{describeAnswer(t.type, t.payload, t.answer_key.value)}</span></p>
+            <p className="text-sm text-muted">Key: <span className="font-semibold text-fg">{joinSep(describeAnswer(t.type, t.payload, t.answer_key.value))}</span></p>
           )}
         </div>
       ) : (
