@@ -1,21 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
-import Link from "next/link";
-import { ArrowDown, ArrowUp, Check, Plus, Trash2, TriangleAlert, X } from "lucide-react";
+import { Check, Plus, TriangleAlert, X } from "lucide-react";
 import { ChoiceInput, OrderInput } from "@/components/TaskInputs";
-import { PanelCard, SimTaskView } from "@/components/SimInputs";
+import { PanelCard } from "@/components/SimInputs";
 import { Spinner } from "@/components/Spinner";
-import { FilterPills } from "@/components/ui/FilterPills";
-import { LangSelect } from "@/components/ui/LangSelect";
 import { joinSep } from "@/components/ui/Sep";
 import { bt, type BuilderKey } from "@/lib/i18n-builder";
 import type { Lang } from "@/lib/i18n";
 import {
   FORMATS, hasLoadedWording, isValidKey,
-  type Format, type LibraryTask, type PlayerTask, type RoleTemplate, type SimKey, type SimPayload,
+  type Format, type LibraryTask, type RoleTemplate, type SimKey, type SimPayload,
 } from "@/lib/sim";
-import type { Answer } from "@/lib/tasks";
 import { publishDraft } from "./actions";
 
 export type LiveDraft = {
@@ -30,12 +26,15 @@ export type LiveDraft = {
 // One duty in the draft: its title, the library task it maps to, and the
 // three things a company may change on that task.
 type Row = { uid: string; title: string; taskId: string | null; followups: string[]; good: string[]; key: SimKey };
-type SheetState = { kind: "library" | "edit"; index: number } | null;
+// One sheet for everything: pick a type, then a library task, then edit it.
+type SheetState = { kind: "type" } | { kind: "library"; format: Format } | { kind: "edit"; index: number } | null;
 
 const LABEL = "text-[11px] font-semibold uppercase tracking-[0.08em] text-muted";
 const INPUT = "min-h-11 w-full border border-border bg-bg px-3 text-base text-fg outline-none placeholder:text-muted focus:border-fg/40";
 const ICON_BTN = "tap inline-flex size-11 items-center justify-center border border-border bg-card text-fg disabled:opacity-40";
+const OPTION = "ui-btn ui-btn-secondary min-h-12 justify-start py-2 text-left text-base";
 const LONG_SEC = 12 * 60;
+const MAX_TASKS = 8;
 // Error codes from publishTest that have their own message.
 const PUBLISH_ERRORS = ["missing_title", "bad_time_limit", "bad_duty_count", "missing_task", "empty_guide", "bad_key"];
 
@@ -44,80 +43,69 @@ const uid = () => `row${++seq}`;
 const rowFrom = (title: string, task: LibraryTask): Row =>
   ({ uid: uid(), title, taskId: task.id, followups: [...task.followups], good: [...task.good_looks_like], key: task.key });
 
-export function Builder({ slug, initialLang, templates, library, live }: {
+// Test builder on one screen: test name, the task list, Add task, and Save
+// in a bar fixed at the bottom. Opens on the live version when there is one.
+export function Builder({ slug, companyName, lang, templates, library, live }: {
   slug: string;
-  initialLang: Lang;
+  companyName: string;
+  lang: Lang;
   templates: RoleTemplate[];
   library: LibraryTask[];
   live: LiveDraft | null;
 }) {
-  const [lang, setLang] = useState<Lang>(initialLang);
   const tr = useCallback((key: BuilderKey, vars?: Record<string, string | number>) => bt(lang, key, vars), [lang]);
   const byId = useMemo(() => new Map(library.map((t) => [t.id, t])), [library]);
 
-  const [step, setStep] = useState<1 | 2 | 3>(1);
-  const [roleSlug, setRoleSlug] = useState<string | null>(null);
-  const [rows, setRows] = useState<Row[]>([]);
-  const [title, setTitle] = useState("");
-  const [timeLimit, setTimeLimit] = useState(20);
-  const [englishRequired, setEnglishRequired] = useState(false);
+  const [roleSlug, setRoleSlug] = useState<string | null>(live?.roleSlug ?? null);
+  const [rows, setRows] = useState<Row[]>(() => (live?.duties ?? []).map((d) =>
+    ({ uid: uid(), title: d.title, taskId: byId.has(d.libraryId) ? d.libraryId : null, followups: d.followups, good: d.good, key: d.key })));
+  const [title, setTitle] = useState(live?.title ?? "");
   const [sheet, setSheet] = useState<SheetState>(null);
-  const [preview, setPreview] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [published, setPublished] = useState<number | null>(null);
   const [pending, startPublish] = useTransition();
+  const closeSheet = useCallback(() => setSheet(null), []);
 
-  // The role tag that filters the library: the one shared by the template's tasks.
+  // The role tag that narrows the library: the one shared by the template's tasks.
   const template = templates.find((t) => t.slug === roleSlug) ?? null;
   const roleTag = template ? byId.get(template.duties[0]?.task_id ?? "")?.role_tags[0] ?? null : null;
+  const formats = FORMATS.filter((f) => library.some((t) => t.format === f));
   const estimateSec = rows.reduce((s, r) => s + (byId.get(r.taskId ?? "")?.expected_seconds ?? 0), 0);
+  const minutes = rows.length ? Math.max(1, Math.round(estimateSec / 60)) : 0;
+  const timeLimit = live?.timeLimit ?? 20;
 
-  function go(next: 1 | 2 | 3) {
-    setStep(next);
+  function choices(format: Format) {
+    const all = library.filter((t) => t.format === format);
+    const forRole = roleTag ? all.filter((t) => t.role_tags.includes(roleTag) || t.role_tags.includes("general")) : all;
+    return forRole.length ? forRole : all;
+  }
+
+  // Any change hides the result of the last save.
+  function edit(next: (rs: Row[]) => Row[]) {
+    setRows(next);
+    setPublished(null);
     setError(null);
-    window.scrollTo({ top: 0 });
   }
-
-  function startFromTemplate(t: RoleTemplate) {
-    setRoleSlug(t.slug);
-    setRows(t.duties.flatMap((d) => (byId.get(d.task_id) ? [rowFrom(d.title, byId.get(d.task_id)!)] : [])));
-    setTitle(`${t.name}: job simulation`);
-    setPublished(null);
-    go(2);
-  }
-  function startFromScratch() {
-    setRoleSlug(null);
-    setRows([]);
-    setTitle("");
-    setPublished(null);
-    go(2);
-  }
-  function startFromLive(l: LiveDraft) {
-    setRoleSlug(l.roleSlug);
-    setRows(l.duties.map((d) => ({ uid: uid(), title: d.title, taskId: byId.has(d.libraryId) ? d.libraryId : null, followups: d.followups, good: d.good, key: d.key })));
-    setTitle(l.title);
-    setTimeLimit(l.timeLimit);
-    setEnglishRequired(l.englishRequired);
-    setPublished(null);
-    go(2);
-  }
-
-  const update = (i: number, patch: Partial<Row>) => setRows((rs) => rs.map((r, j) => (j === i ? { ...r, ...patch } : r)));
+  const update = (i: number, patch: Partial<Row>) => edit((rs) => rs.map((r, j) => (j === i ? { ...r, ...patch } : r)));
   function move(i: number, by: -1 | 1) {
-    setRows((rs) => {
+    edit((rs) => {
       const next = [...rs];
       [next[i], next[i + by]] = [next[i + by], next[i]];
       return next;
     });
   }
-  function addDuty() {
-    setRows((rs) => [...rs, { uid: uid(), title: "", taskId: null, followups: [], good: [], key: null }]);
-    setSheet({ kind: "library", index: rows.length });
-  }
-  function assign(i: number, task: LibraryTask) {
-    const fresh = rowFrom("", task);
-    update(i, { taskId: task.id, followups: fresh.followups, good: fresh.good, key: fresh.key, title: rows[i]?.title.trim() ? rows[i].title : task.duty_hint });
+  function remove(i: number) {
+    edit((rs) => rs.filter((_, j) => j !== i));
     setSheet(null);
+  }
+  function add(task: LibraryTask) {
+    edit((rs) => [...rs, rowFrom(task.duty_hint, task)]);
+    setSheet({ kind: "edit", index: rows.length });
+  }
+  function startFrom(t: RoleTemplate) {
+    setRoleSlug(t.slug);
+    edit(() => t.duties.flatMap((d) => (byId.get(d.task_id) ? [rowFrom(d.title, byId.get(d.task_id)!)] : [])));
+    if (!title.trim()) setTitle(`${t.name}: job simulation`);
   }
 
   function publish() {
@@ -127,7 +115,7 @@ export function Builder({ slug, initialLang, templates, library, live }: {
         roleSlug,
         title,
         timeLimit,
-        englishRequired,
+        englishRequired: live?.englishRequired ?? false,
         duties: rows.map((r) => ({ title: r.title, libraryId: r.taskId ?? "", followups: r.followups, good_looks_like: r.good, key: r.key })),
       }).catch(() => ({ ok: false as const, error: "failed" }));
       if (result.ok) setPublished(result.version);
@@ -135,249 +123,110 @@ export function Builder({ slug, initialLang, templates, library, live }: {
     });
   }
 
-  const previewTasks: PlayerTask[] = rows.flatMap((r) => {
-    const task = byId.get(r.taskId ?? "");
-    return task ? [{ id: r.uid, format: task.format, duty: r.title, title: task.title, payload: task.payload }] : [];
-  });
-  const kinds = rows.map((r) => byId.get(r.taskId ?? "")?.skill_kind).filter(Boolean);
+  const editRow = sheet?.kind === "edit" ? rows[sheet.index] : undefined;
+  const editTask = byId.get(editRow?.taskId ?? "") ?? null;
+  const sheetTitle = sheet?.kind === "type" ? tr("taskType")
+    : sheet?.kind === "library" ? tr(`fmt_${sheet.format}` as BuilderKey)
+    : sheet?.kind === "edit" ? [tr("taskN", { i: sheet.index + 1 }), editTask && tr(`fmt_${editTask.format}` as BuilderKey)].filter(Boolean).join(" · ")
+    : "";
+  const long = estimateSec > LONG_SEC || estimateSec > timeLimit * 60;
 
   return (
-    <div className="flex flex-col gap-4 pt-2">
-      <div className="flex items-end justify-between gap-3">
-        <div>
-          <p className={LABEL}>{tr("stepOf", { i: step })}</p>
-          <h1 className="text-[28px] font-bold leading-tight tracking-tight">{tr("builderTitle")}</h1>
-        </div>
-        <LangSelect value={lang} onChange={setLang} label={tr("language")} />
-      </div>
+    <div className="flex flex-col gap-4 pb-36 pt-2 lg:pb-28">
+      <header className="flex flex-col gap-1">
+        <p className={LABEL}>{companyName}</p>
+        <input value={title} maxLength={80} aria-label={tr("testName")} placeholder={tr("testName")}
+          onChange={(e) => { setTitle(e.target.value); setPublished(null); setError(null); }}
+          className="w-full border-b border-border bg-transparent pb-1 text-[28px] font-bold leading-tight tracking-tight text-fg outline-none placeholder:text-muted focus:border-fg/40" />
+      </header>
 
-      <ol className="grid grid-cols-3 gap-1.5" aria-label={tr("builderTitle")}>
-        {(["stepRole", "stepDuties", "stepSettings"] as const).map((k, i) => (
-          <li key={k} aria-current={step === i + 1 ? "step" : undefined}
-            className={`border-t-2 pt-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] ${step >= i + 1 ? "border-fg text-fg" : "border-border text-muted"}`}>
-            {tr(k)}
-          </li>
-        ))}
-      </ol>
-
-      {step === 1 && (
-        <section className="flex flex-col gap-3">
-          <p className="text-sm text-muted">{tr("roleIntro")}</p>
-          {live && (
-            <button type="button" onClick={() => startFromLive(live)} className="tap flex flex-col gap-1 border-2 border-fg/40 bg-card p-4 text-left">
-              <span className="text-base font-bold">{tr("editLive", { v: live.version })}</span>
-              <span className="text-sm text-muted">{joinSep([live.title, tr("dutiesCount", { n: live.duties.length })])}</span>
-              <span className="text-[13px] text-muted">{tr("editLiveHint")}</span>
-            </button>
-          )}
-          {templates.map((t) => {
-            const tasks = t.duties.map((d) => byId.get(d.task_id)).filter((x): x is LibraryTask => Boolean(x));
-            const minutes = Math.max(1, Math.round(tasks.reduce((s, x) => s + x.expected_seconds, 0) / 60));
+      {rows.length > 0 && (
+        <ol className="flex flex-col border-t border-border">
+          {rows.map((r, i) => {
+            const task = byId.get(r.taskId ?? "");
             return (
-              <button key={t.slug} type="button" onClick={() => startFromTemplate(t)} className="tap flex flex-col gap-2 border border-border bg-card p-4 text-left">
-                <span className="text-base font-bold">{t.name}</span>
-                <span className="text-sm text-muted">{t.summary}</span>
-                <span className={LABEL}>{joinSep([tr("skillProfile"), tr("dutiesCount", { n: tasks.length }), `≈ ${minutes} min`])}</span>
-                <span className="flex flex-wrap gap-1.5">
-                  {tasks.map((x) => (
-                    <span key={x.id} className="inline-flex min-h-7 items-center gap-1.5 border border-border px-2 text-[13px]">
-                      {x.skill_tag}<KindTag kind={x.skill_kind} tr={tr} />
+              <li key={r.uid} className="flex items-center gap-2 border-b border-border py-1.5">
+                <button type="button" onClick={() => setSheet({ kind: "edit", index: i })}
+                  className="tap flex min-h-12 min-w-0 flex-1 items-center gap-3 text-left">
+                  <span className="w-5 shrink-0 text-sm font-bold tabular-nums text-muted">{i + 1}</span>
+                  <span className="min-w-0">
+                    <span className="block truncate text-base font-semibold">{r.title || task?.title || "–"}</span>
+                    <span className={`block text-[13px] ${task ? "text-muted" : "text-warn"}`}>
+                      {task ? tr(`fmt_${task.format}` as BuilderKey) : tr("noTask")}
                     </span>
-                  ))}
-                </span>
-              </button>
+                  </span>
+                </button>
+                <button type="button" disabled={i === 0} onClick={() => move(i, -1)} aria-label={tr("moveUp")}
+                  className="ui-btn ui-btn-secondary px-3">{tr("up")}</button>
+                <button type="button" disabled={i === rows.length - 1} onClick={() => move(i, 1)} aria-label={tr("moveDown")}
+                  className="ui-btn ui-btn-secondary px-3">{tr("down")}</button>
+              </li>
             );
           })}
-          <button type="button" onClick={startFromScratch} className="tap flex flex-col gap-1 border border-dashed border-border bg-card p-4 text-left">
-            <span className="text-base font-bold">{tr("fromScratch")}</span>
-            <span className="text-sm text-muted">{tr("fromScratchHint")}</span>
-          </button>
+        </ol>
+      )}
+
+      <button type="button" onClick={() => setSheet({ kind: "type" })} disabled={rows.length >= MAX_TASKS}
+        className="ui-btn ui-btn-secondary min-h-12 text-base">
+        <Plus className="size-4" aria-hidden />{tr("addTask")}
+      </button>
+
+      {rows.length === 0 && templates.length > 0 && (
+        <section className="flex flex-col gap-2">
+          <p className={LABEL}>{tr("startFrom")}</p>
+          {templates.map((t) => (
+            <button key={t.slug} type="button" onClick={() => startFrom(t)} className={OPTION}>{t.name}</button>
+          ))}
         </section>
       )}
 
-      {step === 2 && (
-        <section className="flex flex-col gap-3">
-          <p className="text-sm text-muted">{tr("dutiesIntro")}</p>
-          <Estimate seconds={estimateSec} limit={timeLimit} count={rows.length} tr={tr} />
-          <ol className="flex flex-col gap-3">
-            {rows.map((r, i) => {
-              const task = byId.get(r.taskId ?? "");
-              return (
-                <li key={r.uid} className="flex flex-col gap-2.5 border border-border bg-card p-3">
-                  <label className="flex flex-col gap-1.5">
-                    <span className={LABEL}>{tr("dutyLabel", { i: i + 1 })}</span>
-                    <input value={r.title} maxLength={120} onChange={(e) => update(i, { title: e.target.value })}
-                      placeholder={tr("dutyPlaceholder")} className={INPUT} />
-                  </label>
-                  {hasLoadedWording(r.title) && (
-                    <p role="status" className="flex gap-2 bg-warn/10 p-2.5 text-[13px]">
-                      <TriangleAlert className="mt-0.5 size-4 shrink-0 text-warn" aria-hidden />
-                      <span><span className="font-semibold">{tr("loaded")}</span> {tr("loadedHint")}</span>
-                    </p>
-                  )}
-                  {task ? <TaskLine task={task} tr={tr} /> : <p className="bg-fg/10 p-2.5 text-sm text-fg/70">{tr("noTask")}</p>}
-                  <div className="flex flex-wrap items-center gap-2">
-                    <button type="button" onClick={() => setSheet({ kind: "library", index: i })}
-                      className={`ui-btn ${task ? "ui-btn-secondary" : "ui-btn-primary"}`}>
-                      {task ? tr("swap") : tr("pickTask")}
-                    </button>
-                    <button type="button" disabled={!task} onClick={() => setSheet({ kind: "edit", index: i })} className="ui-btn ui-btn-secondary">
-                      {tr("edit")}
-                    </button>
-                    <span className="ml-auto flex gap-1.5">
-                      <button type="button" aria-label={tr("moveUp")} title={tr("moveUp")} disabled={i === 0} onClick={() => move(i, -1)} className={ICON_BTN}>
-                        <ArrowUp className="size-4" aria-hidden />
-                      </button>
-                      <button type="button" aria-label={tr("moveDown")} title={tr("moveDown")} disabled={i === rows.length - 1} onClick={() => move(i, 1)} className={ICON_BTN}>
-                        <ArrowDown className="size-4" aria-hidden />
-                      </button>
-                      <button type="button" aria-label={tr("remove")} title={tr("remove")} onClick={() => setRows((rs) => rs.filter((_, j) => j !== i))} className={`${ICON_BTN} text-bad`}>
-                        <Trash2 className="size-4" aria-hidden />
-                      </button>
-                    </span>
-                  </div>
-                </li>
-              );
-            })}
-          </ol>
-          <button type="button" onClick={addDuty} disabled={rows.length >= 8} className="ui-btn ui-btn-secondary min-h-12 border-dashed">
-            <Plus className="size-4" aria-hidden />{tr("addDuty")}
+      <div data-dock className="fixed inset-x-0 bottom-(--tabbar) z-20 border-t border-border bg-bg px-4 pb-3 pt-2 lg:left-(--rail)">
+        <div className="mx-auto flex max-w-[720px] flex-col gap-2">
+          <p aria-live="polite" className={`truncate text-[13px] tabular-nums ${
+            error ? "font-semibold text-bad" : published !== null ? "font-semibold text-ok" : long ? "font-semibold text-warn" : "text-muted"}`}>
+            {error ? tr(PUBLISH_ERRORS.includes(error) ? `err_${error}` as BuilderKey : "err_failed")
+              : published !== null ? tr("savedLine", { v: published })
+              : joinSep([rows.length === 1 ? tr("oneTask") : tr("tasksCount", { n: rows.length }), tr("aboutMin", { m: minutes })])}
+          </p>
+          <button type="button" onClick={publish} disabled={pending || rows.length === 0} aria-busy={pending}
+            className="ui-btn ui-btn-primary min-h-12 text-base">
+            {pending ? <><Spinner />{tr("saving")}</> : tr("save")}
           </button>
-          <StepNav tr={tr} onBack={() => go(1)} onNext={() => go(3)} nextDisabled={rows.length === 0 || rows.some((r) => !r.taskId)} />
-        </section>
-      )}
+        </div>
+      </div>
 
-      {step === 3 && (
-        <section className="flex flex-col gap-4">
-          <label className="flex flex-col gap-1.5">
-            <span className={LABEL}>{tr("testName")}</span>
-            <input value={title} maxLength={80} onChange={(e) => setTitle(e.target.value)} className={INPUT} />
-          </label>
-          <label className="flex flex-col gap-1.5">
-            <span className={LABEL}>{tr("timeLimit")}</span>
-            <input type="number" inputMode="numeric" min={5} max={60} value={timeLimit}
-              onChange={(e) => setTimeLimit(Math.round(Number(e.target.value) || 0))} className={`${INPUT} max-w-32 tabular-nums`} />
-          </label>
-          <Estimate seconds={estimateSec} limit={timeLimit} count={rows.length} tr={tr} />
-          <div className="flex flex-col gap-1.5 border border-border bg-card p-3">
-            <label className="flex min-h-11 cursor-pointer items-center gap-3 text-base font-semibold">
-              <input type="checkbox" checked={englishRequired} onChange={(e) => setEnglishRequired(e.target.checked)} className="size-5 shrink-0 accent-accent" />
-              {tr("englishRequired")}
-            </label>
-            <p className="text-[13px] text-muted">{tr("englishHint")}</p>
-          </div>
-
-          <section className="flex flex-col gap-2 border border-border bg-card p-3">
-            <p className={LABEL}>{joinSep([tr("summary"), tr("skills", { hard: kinds.filter((k) => k === "hard").length, soft: kinds.filter((k) => k === "soft").length })])}</p>
-            <ol className="flex flex-col gap-2">
-              {rows.map((r, i) => {
-                const task = byId.get(r.taskId ?? "");
-                return (
-                  <li key={r.uid} className="flex gap-2.5 text-sm">
-                    <span className="flex size-6 shrink-0 items-center justify-center bg-fg/10 text-xs font-bold tabular-nums">{i + 1}</span>
-                    <span className="min-w-0">
-                      <span className="block font-semibold">{r.title || "–"}</span>
-                      {task && <span className="flex flex-wrap items-center gap-1.5 text-muted">{task.skill_tag}<KindTag kind={task.skill_kind} tr={tr} /></span>}
-                    </span>
-                  </li>
-                );
-              })}
-            </ol>
-          </section>
-
-          <button type="button" onClick={() => setPreview(true)} disabled={previewTasks.length === 0} className="ui-btn ui-btn-secondary min-h-12 text-base">
-            {tr("preview")}
-          </button>
-
-          {error && <p role="alert" className="text-sm font-semibold text-bad">{tr(PUBLISH_ERRORS.includes(error) ? `err_${error}` as BuilderKey : "err_failed")}</p>}
-          {published !== null ? (
-            <div role="status" className="flex flex-col gap-3 border border-ok/50 bg-ok/10 p-3">
-              <p className="flex gap-2 text-sm font-semibold"><Check className="mt-0.5 size-4 shrink-0 text-ok" aria-hidden />{tr("published", { v: published })}</p>
-              <div className="flex flex-wrap gap-2">
-                <Link href={`/r/${slug}/guide`} className="ui-btn ui-btn-primary">{tr("openGuide")}</Link>
-                <Link href={`/r/${slug}`} className="ui-btn ui-btn-secondary">{tr("toCandidates")}</Link>
-              </div>
+      {sheet && (sheet.kind !== "edit" || editRow) && (
+        <Sheet title={sheetTitle} closeLabel={tr("close")} onClose={closeSheet}>
+          {sheet.kind === "type" && (
+            <div className="flex flex-col gap-2">
+              {formats.map((f) => (
+                <button key={f} type="button" onClick={() => setSheet({ kind: "library", format: f })} className={OPTION}>
+                  {tr(`fmt_${f}` as BuilderKey)}
+                </button>
+              ))}
             </div>
-          ) : (
-            <StepNav tr={tr} onBack={() => go(2)} onNext={publish} nextLabel={pending ? <><Spinner />{tr("publishing")}</> : tr("publish")}
-              nextDisabled={pending || rows.length === 0} busy={pending} />
           )}
-        </section>
-      )}
-
-      {sheet?.kind === "library" && (
-        <Sheet title={tr("library")} closeLabel={tr("close")} onClose={() => setSheet(null)}>
-          <LibraryPicker library={library} roleTag={roleTag} current={byId.get(rows[sheet.index]?.taskId ?? "") ?? null}
-            onPick={(task) => assign(sheet.index, task)} tr={tr} />
+          {sheet.kind === "library" && (
+            <div className="flex flex-col gap-2">
+              {choices(sheet.format).map((t) => (
+                <button key={t.id} type="button" onClick={() => add(t)} className={OPTION}>{t.title}</button>
+              ))}
+              <button type="button" onClick={() => setSheet({ kind: "type" })} className="ui-btn ui-btn-secondary mt-1 min-h-12 text-base">
+                {tr("back")}
+              </button>
+            </div>
+          )}
+          {sheet.kind === "edit" && editRow && (
+            <EditTask row={editRow} task={editTask} lang={lang} tr={tr}
+              onChange={(patch) => update(sheet.index, patch)} onRemove={() => remove(sheet.index)} onDone={closeSheet} />
+          )}
         </Sheet>
       )}
-      {sheet?.kind === "edit" && rows[sheet.index] && byId.get(rows[sheet.index].taskId ?? "") && (
-        <Sheet title={byId.get(rows[sheet.index].taskId!)!.title} closeLabel={tr("close")} onClose={() => setSheet(null)}>
-          <EditTask row={rows[sheet.index]} task={byId.get(rows[sheet.index].taskId!)!} lang={lang} tr={tr}
-            onChange={(patch) => update(sheet.index, patch)} onDone={() => setSheet(null)} />
-        </Sheet>
-      )}
-      {preview && <Preview tasks={previewTasks} lang={lang} tr={tr} onClose={() => setPreview(false)} />}
     </div>
   );
 }
 
 type Tr = (key: BuilderKey, vars?: Record<string, string | number>) => string;
-
-function KindTag({ kind, tr }: { kind: LibraryTask["skill_kind"]; tr: Tr }) {
-  return (
-    <span className={`inline-flex h-5 items-center px-1.5 text-[10px] font-semibold uppercase tracking-[0.06em] ${
-      kind === "soft" ? "bg-info/15 text-info" : "bg-fg/10 text-fg/70"}`}>
-      {tr(kind)}
-    </span>
-  );
-}
-
-function TaskLine({ task, tr }: { task: LibraryTask; tr: Tr }) {
-  return (
-    <div className="flex flex-col gap-1.5 bg-bg p-2.5">
-      <p className="text-sm font-semibold">{task.title}</p>
-      <p className="flex flex-wrap items-center gap-1.5 text-[13px] text-muted">
-        <span className="inline-flex h-5 items-center bg-fg/10 px-1.5 text-[10px] font-semibold uppercase tracking-[0.06em] text-fg/70">
-          {tr(`fmt_${task.format}` as BuilderKey)}
-        </span>
-        <KindTag kind={task.skill_kind} tr={tr} />
-        {joinSep([task.skill_tag, tr("seconds", { s: task.expected_seconds })])}
-      </p>
-    </div>
-  );
-}
-
-function Estimate({ seconds, limit, count, tr }: { seconds: number; limit: number; count: number; tr: Tr }) {
-  const long = seconds > LONG_SEC;
-  return (
-    <div className="flex flex-col gap-1">
-      <p className={`text-sm font-semibold tabular-nums ${long || seconds > limit * 60 ? "text-warn" : ""}`}>
-        {tr("estimate", { est: Math.max(1, Math.round(seconds / 60)), limit })}
-      </p>
-      {long && <p className="text-[13px] text-warn">{tr("tooLong")}</p>}
-      {(count < 3 || count > 5) && <p className="text-[13px] text-muted">{tr("dutyRange")}</p>}
-    </div>
-  );
-}
-
-function StepNav({ tr, onBack, onNext, nextLabel, nextDisabled, busy }: {
-  tr: Tr;
-  onBack: () => void;
-  onNext: () => void;
-  nextLabel?: ReactNode;
-  nextDisabled?: boolean;
-  busy?: boolean;
-}) {
-  return (
-    <div className="grid grid-cols-2 gap-3 pt-1">
-      <button type="button" onClick={onBack} className="ui-btn ui-btn-secondary min-h-12 text-base">{tr("back")}</button>
-      <button type="button" onClick={onNext} disabled={nextDisabled} aria-busy={busy} className="ui-btn ui-btn-primary min-h-12 text-base">
-        {nextLabel ?? tr("next")}
-      </button>
-    </div>
-  );
-}
 
 // Bottom sheet with its own scroll. Escape or Close dismisses it.
 function Sheet({ title, closeLabel, onClose, children }: { title: string; closeLabel: string; onClose: () => void; children: ReactNode }) {
@@ -401,44 +250,6 @@ function Sheet({ title, closeLabel, onClose, children }: { title: string; closeL
         </div>
         <div className="overflow-y-auto px-4 pb-[calc(1rem_+_env(safe-area-inset-bottom))] pt-3">{children}</div>
       </div>
-    </div>
-  );
-}
-
-// Library filtered by the role's tag and a format; Swap starts on the
-// current task's format.
-function LibraryPicker({ library, roleTag, current, onPick, tr }: {
-  library: LibraryTask[];
-  roleTag: string | null;
-  current: LibraryTask | null;
-  onPick: (task: LibraryTask) => void;
-  tr: Tr;
-}) {
-  const [scope, setScope] = useState<"role" | "all">(roleTag ? "role" : "all");
-  const [format, setFormat] = useState<Format | "all">(current?.format ?? "all");
-  const shown = library.filter((t) =>
-    (scope === "all" || !roleTag || t.role_tags.includes(roleTag) || t.role_tags.includes("general")) &&
-    (format === "all" || t.format === format));
-  return (
-    <div className="flex flex-col gap-3">
-      {roleTag && (
-        <FilterPills label={tr("library")} value={scope} onChange={setScope}
-          options={[{ value: "role", label: tr("thisRole") }, { value: "all", label: tr("allRoles") }]} />
-      )}
-      <FilterPills label={tr("allFormats")} value={format} onChange={setFormat}
-        options={[{ value: "all", label: tr("allFormats") }, ...FORMATS.map((f) => ({ value: f, label: tr(`fmt_${f}` as BuilderKey) }))]} />
-      {shown.length === 0 && <p className="py-6 text-center text-sm text-muted">{tr("noMatches")}</p>}
-      <ul className="flex flex-col gap-2">
-        {shown.map((t) => (
-          <li key={t.id}>
-            <button type="button" onClick={() => onPick(t)} aria-pressed={current?.id === t.id}
-              className={`tap flex w-full flex-col gap-1 border p-3 text-left ${current?.id === t.id ? "border-fg" : "border-border"}`}>
-              <span className="text-[13px] text-muted">{t.duty_hint}</span>
-              <TaskLine task={t} tr={tr} />
-            </button>
-          </li>
-        ))}
-      </ul>
     </div>
   );
 }
@@ -522,71 +333,45 @@ function KeyEditor({ task, value, onChange, lang, tr }: { task: LibraryTask; val
   );
 }
 
-function EditTask({ row, task, lang, tr, onChange, onDone }: {
+function EditTask({ row, task, lang, tr, onChange, onRemove, onDone }: {
   row: Row;
-  task: LibraryTask;
+  task: LibraryTask | null;
   lang: Lang;
   tr: Tr;
   onChange: (patch: Partial<Row>) => void;
+  onRemove: () => void;
   onDone: () => void;
 }) {
   return (
     <div className="flex flex-col gap-5">
-      <TaskLine task={task} tr={tr} />
-      <p className="text-sm">{task.payload.prompt}</p>
-      <LinesEditor label={tr("followups")} lines={row.followups} onChange={(followups) => onChange({ followups })} max={6}
-        addLabel={tr("addQuestion")} removeLabel={tr("removeLine")} />
-      <LinesEditor label={tr("listenFor")} lines={row.good} onChange={(good) => onChange({ good })} max={5}
-        addLabel={tr("addLine")} removeLabel={tr("removeLine")} />
-      <section className="flex flex-col gap-2">
-        <p className={LABEL}>{tr(task.key_kind === "typical" ? "keyTypical" : "keyExact")}</p>
-        <KeyEditor task={task} value={row.key} onChange={(key) => onChange({ key })} lang={lang} tr={tr} />
-      </section>
-      <section className="flex flex-col gap-1.5">
-        <p className={LABEL}>{tr("notMeasure")}</p>
-        <p className="bg-fg/[0.05] p-2.5 text-[13px] text-muted">{task.not_measure_note}</p>
-      </section>
-      <p className="text-[13px] text-muted">{tr("taskEnglish")}</p>
-      <button type="button" onClick={onDone} className="ui-btn ui-btn-primary min-h-12 text-base">{tr("done")}</button>
-    </div>
-  );
-}
-
-// Candidate view of the draft, one task per screen. Local state only: no
-// attempt, no request, nothing saved.
-function Preview({ tasks, lang, tr, onClose }: { tasks: PlayerTask[]; lang: Lang; tr: Tr; onClose: () => void }) {
-  const [i, setI] = useState(0);
-  const [answers, setAnswers] = useState<Record<string, Answer | undefined>>({});
-  const task = tasks[Math.min(i, tasks.length - 1)];
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
-  if (!task) return null;
-  return (
-    <div role="dialog" aria-modal="true" aria-label={tr("preview")} className="fixed inset-0 z-50 overflow-y-auto bg-bg">
-      <div className="sticky top-0 z-10 border-b border-border bg-bg">
-        <div className="mx-auto flex max-w-md items-center gap-3 px-4 py-2">
-          <p className="min-w-0 flex-1 text-[13px] text-muted">
-            <span className="block font-semibold text-fg">{joinSep([tr("preview"), `${i + 1}/${tasks.length}`])}</span>
-            {tr("previewNote")}
+      <div className="flex flex-col gap-1.5">
+        <input value={row.title} maxLength={120} aria-label={tr("dutyPlaceholder")} placeholder={tr("dutyPlaceholder")}
+          onChange={(e) => onChange({ title: e.target.value })} className={INPUT} />
+        {hasLoadedWording(row.title) && (
+          <p role="status" className="flex items-center gap-2 text-[13px] font-semibold text-warn">
+            <TriangleAlert className="size-4 shrink-0" aria-hidden />{tr("loaded")}
           </p>
-          <button type="button" onClick={onClose} className="ui-btn ui-btn-secondary">{tr("closePreview")}</button>
-        </div>
+        )}
       </div>
-      <main key={task.id} className="mx-auto flex w-full max-w-md animate-fade flex-col gap-4 px-4 pb-28 pt-5">
-        <SimTaskView task={task} value={answers[task.id]} lang={lang}
-          onChange={(next) => setAnswers((a) => ({ ...a, [task.id]: next }))} />
-      </main>
-      <footer className="fixed inset-x-0 bottom-0 border-t border-border bg-bg px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">
-        <div className="mx-auto grid max-w-md grid-cols-2 gap-3">
-          <button type="button" disabled={i === 0} onClick={() => setI(i - 1)} className="ui-btn ui-btn-secondary min-h-12 text-base">{tr("back")}</button>
-          {i < tasks.length - 1
-            ? <button type="button" onClick={() => setI(i + 1)} className="ui-btn ui-btn-primary min-h-12 text-base">{tr("next")}</button>
-            : <button type="button" onClick={onClose} className="ui-btn ui-btn-primary min-h-12 text-base">{tr("closePreview")}</button>}
-        </div>
-      </footer>
+      {task ? (
+        <>
+          <p className="text-sm">{task.payload.prompt}</p>
+          <LinesEditor label={tr("followups")} lines={row.followups} onChange={(followups) => onChange({ followups })} max={6}
+            addLabel={tr("addQuestion")} removeLabel={tr("removeLine")} />
+          <LinesEditor label={tr("listenFor")} lines={row.good} onChange={(good) => onChange({ good })} max={5}
+            addLabel={tr("addLine")} removeLabel={tr("removeLine")} />
+          <section className="flex flex-col gap-2">
+            <p className={LABEL}>{tr(task.key_kind === "typical" ? "keyTypical" : "keyExact")}</p>
+            <KeyEditor task={task} value={row.key} onChange={(key) => onChange({ key })} lang={lang} tr={tr} />
+          </section>
+        </>
+      ) : (
+        <p className="text-sm text-muted">{tr("noTask")}</p>
+      )}
+      <div className="grid grid-cols-2 gap-3">
+        <button type="button" onClick={onRemove} className="ui-btn ui-btn-secondary min-h-12 text-base text-bad">{tr("remove")}</button>
+        <button type="button" onClick={onDone} className="ui-btn ui-btn-primary min-h-12 text-base">{tr("done")}</button>
+      </div>
     </div>
   );
 }

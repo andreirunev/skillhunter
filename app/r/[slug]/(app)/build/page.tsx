@@ -6,8 +6,8 @@ import { Builder, type LiveDraft } from "./Builder";
 
 export const dynamic = "force-dynamic";
 
-// Test builder: role -> duties -> settings and publish. Starts from a role
-// template, from scratch, or from the live version.
+// Test builder: one screen with the task list. Opens on the live version;
+// with none, starts empty or from a role template.
 export default async function BuildPage(props: PageProps<"/r/[slug]/build">) {
   const { slug } = await props.params;
   const company = await getCompany(slug);
@@ -23,5 +23,5 @@ export default async function BuildPage(props: PageProps<"/r/[slug]/build">) {
     englishRequired: live.english_required,
     duties: live.tasks.map((t) => ({ title: t.duty, libraryId: t.library_id, followups: t.followups, good: t.good_looks_like, key: t.key })),
   };
-  return <Builder slug={slug} initialLang={lang ?? "en"} templates={templates} library={library} live={liveDraft} />;
+  return <Builder slug={slug} companyName={company.name} lang={lang ?? "en"} templates={templates} library={library} live={liveDraft} />;
 }

@@ -94,6 +94,18 @@ const en = {
   fmt_read_decide: "Read and decide",
   fmt_handover: "Handover",
   fmt_quick_logic: "Quick logic",
+  taskType: "Task type",
+  taskN: "Task {i}",
+  addTask: "Add task",
+  startFrom: "Or start from a role",
+  up: "Up",
+  down: "Down",
+  oneTask: "1 task",
+  tasksCount: "{n} tasks",
+  aboutMin: "about {m} min",
+  save: "Save",
+  saving: "Saving…",
+  savedLine: "Saved. Version {v} is live.",
 };
 export type BuilderKey = keyof typeof en;
 
@@ -188,6 +200,18 @@ const fi: Record<BuilderKey, string> = {
   fmt_read_decide: "Lue ja päätä",
   fmt_handover: "Viesti kollegalle",
   fmt_quick_logic: "Pikalogiikka",
+  taskType: "Tehtävätyyppi",
+  taskN: "Tehtävä {i}",
+  addTask: "Lisää tehtävä",
+  startFrom: "Tai aloita roolista",
+  up: "Ylös",
+  down: "Alas",
+  oneTask: "1 tehtävä",
+  tasksCount: "{n} tehtävää",
+  aboutMin: "noin {m} min",
+  save: "Tallenna",
+  saving: "Tallennetaan…",
+  savedLine: "Tallennettu. Versio {v} on käytössä.",
 };
 
 const sv: Record<BuilderKey, string> = {
@@ -281,6 +305,18 @@ const sv: Record<BuilderKey, string> = {
   fmt_read_decide: "Läs och besluta",
   fmt_handover: "Överlämning",
   fmt_quick_logic: "Snabb logik",
+  taskType: "Uppgiftstyp",
+  taskN: "Uppgift {i}",
+  addTask: "Lägg till uppgift",
+  startFrom: "Eller börja från en roll",
+  up: "Upp",
+  down: "Ner",
+  oneTask: "1 uppgift",
+  tasksCount: "{n} uppgifter",
+  aboutMin: "cirka {m} min",
+  save: "Spara",
+  saving: "Sparar…",
+  savedLine: "Sparat. Version {v} är live.",
 };
 
 const MESSAGES: Record<Lang, Record<BuilderKey, string>> = { en, fi, sv };
