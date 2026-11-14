@@ -237,6 +237,8 @@ export async function setStage(attemptId: string, next: RecruiterStage): Promise
 
 export async function saveNote(attemptId: string, taskId: string, asked: boolean, note: string): Promise<boolean> {
   if (!isUuid(attemptId) || !isUuid(taskId)) return false;
+  // Only a task of the attempt's own version (task_id has no foreign key).
+  if (!(await attemptTasks(attemptId))?.some((t) => t.id === taskId)) return false;
   const rows = await db()`
     INSERT INTO recruiter_notes (attempt_id, task_id, asked, note)
     SELECT ${attemptId}::uuid, ${taskId}::uuid, ${asked}, ${note.slice(0, 2000)}
