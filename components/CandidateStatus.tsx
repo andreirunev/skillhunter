@@ -6,22 +6,31 @@ import { ChevronLeft } from "lucide-react";
 import { BigCode } from "@/components/ui/BigCode";
 import { StatusPill } from "@/components/ui/StatusPill";
 import type { Status } from "@/lib/recruiter";
+import type { Stage } from "@/lib/stage";
 
-type Saved = { status: Status; code: string | null };
-type Value = Saved & { attemptId: string; setSaved: (s: Saved) => void };
+type Saved = { status: Status; code: string | null; stage: Stage };
+type Value = Saved & { attemptId: string; setSaved: (patch: Partial<Saved>) => void };
 
 const Ctx = createContext<Value | null>(null);
 
-// The candidate's current label and booth code, shared by the top bar pill
-// and the action bar, so a saved decision shows at once without a reload.
-// Keyed by attempt id in the parent.
-export function CandidateStatusProvider({ attemptId, status, code, children }: {
+// The candidate's current label, booth code and booth-flow stage, shared by
+// the top bar pill and the action bar, so a saved decision shows at once
+// without a reload. A server refresh (e.g. the candidate shared details)
+// replaces it. Keyed by attempt id in the parent.
+export function CandidateStatusProvider({ attemptId, status, code, stage, children }: {
   attemptId: string;
   status: Status;
   code: string | null;
+  stage: Stage;
   children: ReactNode;
 }) {
-  const [saved, setSaved] = useState<Saved>({ status, code });
+  const [saved, setSavedState] = useState<Saved>({ status, code, stage });
+  const [server, setServer] = useState<Saved>({ status, code, stage });
+  if (server.status !== status || server.code !== code || server.stage !== stage) {
+    setServer({ status, code, stage });
+    setSavedState({ status, code, stage });
+  }
+  const setSaved = (patch: Partial<Saved>) => setSavedState((s) => ({ ...s, ...patch }));
   return <Ctx.Provider value={{ ...saved, attemptId, setSaved }}>{children}</Ctx.Provider>;
 }
 

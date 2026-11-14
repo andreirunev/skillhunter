@@ -22,8 +22,9 @@ export default async function DonePage(props: PageProps<"/t/[attemptId]/done">) 
       <Waiting
         attemptId={attemptId}
         booth={view.booth}
+        company={view.company_name}
         timeUp={view.limit_reached}
-        initial={view.code ? { code: view.code } : null}
+        initial={{ code: view.code, stage: view.stage }}
       />
     </CandidateShell>
   );

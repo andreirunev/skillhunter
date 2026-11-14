@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { Check, Flag, TriangleAlert } from "lucide-react";
 import { ActionBar } from "@/components/ActionBar";
+import { AutoRefresh } from "@/components/AutoRefresh";
 import { CandidateCode, CandidateStatusProvider, DetailTopBar } from "@/components/CandidateStatus";
 import { FlagRow } from "@/components/Flags";
 import { TaskNotes } from "@/components/TaskNotes";
@@ -24,7 +25,8 @@ export default async function CandidatePage(props: PageProps<"/r/[slug]/a/[attem
   const flagCount = tasks.reduce((sum, t) => sum + t.flags.length, 0);
 
   return (
-    <CandidateStatusProvider key={attempt.id} attemptId={attempt.id} status={attempt.status} code={attempt.invite_code}>
+    <CandidateStatusProvider key={attempt.id} attemptId={attempt.id} status={attempt.status} code={attempt.invite_code} stage={attempt.stage}>
+      <AutoRefresh seconds={10} />
       <DetailTopBar backHref={`/r/${slug}`} name={attempt.avatar_name} />
 
       <div className="flex flex-col gap-3 pb-16 pt-4 lg:pb-12">
@@ -38,6 +40,14 @@ export default async function CandidatePage(props: PageProps<"/r/[slug]/a/[attem
             </span>
           </div>
           <CandidateCode />
+          {attempt.contact && (
+            <div className="flex flex-col gap-1 rounded-tile bg-bg p-3">
+              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted">Contact · shared by the candidate</p>
+              <p className="text-base font-semibold">{attempt.contact.full_name}</p>
+              {attempt.contact.phone && <a href={`tel:${attempt.contact.phone.replace(/[^\d+]/g, "")}`} className="text-base text-info">{attempt.contact.phone}</a>}
+              {attempt.contact.email && <a href={`mailto:${attempt.contact.email}`} className="break-all text-base text-info">{attempt.contact.email}</a>}
+            </div>
+          )}
           <dl className="grid grid-cols-3 gap-2">
             <Fact label={attempt.finished_at ? "Finished" : "In progress"}
               value={attempt.finished_at ? formatClock(attempt.finished_at) : `${answered}/${tasks.length}`} />

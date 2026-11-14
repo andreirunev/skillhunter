@@ -60,11 +60,12 @@ ALTER TABLE attempts ADD CONSTRAINT attempts_lang_check CHECK (lang IN ('en', 'f
 -- Recruiter statuses (human labels). Re-created so re-running updates it.
 ALTER TABLE attempts DROP CONSTRAINT IF EXISTS attempts_status_check, ADD CONSTRAINT attempts_status_check CHECK (status IN ('new','invited','at_booth','good_fit','needs_review','interview','not_now','declined'));
 
--- Stage only moves forward: anonymous -> mini_interview (booth code entered)
--- -> full_interview. Contact is optional, typed by the candidate, and only
--- allowed once a full interview is offered.
+-- Booth flow, every step a human action: anonymous -> mini_interview (the
+-- recruiter enters the candidate's code) -> contact_requested or closed (the
+-- recruiter, reversible until the candidate acts) -> full_interview (the
+-- candidate shared contact details with consent) or contact_declined.
 ALTER TABLE attempts ADD COLUMN IF NOT EXISTS stage text NOT NULL DEFAULT 'anonymous', ADD COLUMN IF NOT EXISTS contact jsonb;
-ALTER TABLE attempts DROP CONSTRAINT IF EXISTS attempts_stage_check, ADD CONSTRAINT attempts_stage_check CHECK (stage IN ('anonymous','mini_interview','full_interview'));
+ALTER TABLE attempts DROP CONSTRAINT IF EXISTS attempts_stage_check, ADD CONSTRAINT attempts_stage_check CHECK (stage IN ('anonymous','mini_interview','contact_requested','full_interview','contact_declined','closed'));
 ALTER TABLE attempts DROP CONSTRAINT IF EXISTS attempts_contact_check, ADD CONSTRAINT attempts_contact_check CHECK (contact IS NULL OR stage = 'full_interview');
 
 -- Device binding: SHA-256 of the candidate's random device cookie. No device

@@ -5,6 +5,7 @@ import { makeAvatar } from "./avatar.ts";
 import { computeFlags, type FlagCode } from "./flags.ts";
 import { isAnswered, matchesKey, type Answer, type AnswerKey, type TaskPayload, type TaskType } from "./tasks.ts";
 import type { Lang } from "./i18n.ts";
+import type { Contact, Stage } from "./stage.ts";
 import { closeIfExpired, TIME_LIMIT_MINUTES } from "./timing.ts";
 
 // Data access for the candidate flow. Nothing here returns an answer key,
@@ -209,12 +210,36 @@ export async function finishAttempt(attemptId: string): Promise<boolean> {
 export async function getInvitationView(attemptId: string) {
   if (!isUuid(attemptId)) return null;
   await closeIfExpired(attemptId);
-  const [row] = await db()<{ lang: Lang; booth: string; company_name: string; finished: boolean; limit_reached: boolean; code: string | null }[]>`
-    SELECT a.lang, c.booth, c.name AS company_name, a.finished_at IS NOT NULL AS finished,
+  const [row] = await db()<{ lang: Lang; booth: string; company_name: string; finished: boolean; limit_reached: boolean; code: string | null; stage: Stage }[]>`
+    SELECT a.lang, c.booth, c.name AS company_name, a.finished_at IS NOT NULL AS finished, a.stage,
       coalesce(a.finished_at >= a.started_at + make_interval(mins => ${TIME_LIMIT_MINUTES}), false) AS limit_reached, i.code
     FROM attempts a
     JOIN tests t ON t.id = a.test_id JOIN companies c ON c.id = t.company_id
     LEFT JOIN invitations i ON i.attempt_id = a.id
     WHERE a.id = ${attemptId}::uuid`;
   return row ?? null;
+}
+
+// The candidate's answer to a contact request. Contact is stored only here,
+// only with consent, and only while the request stands (stage moves to
+// full_interview in the same UPDATE, as attempts_contact_check requires).
+export async function submitContact(attemptId: string, contact: Contact): Promise<boolean> {
+  if (!isUuid(attemptId)) return false;
+  const sql = db();
+  const rows = await sql`
+    UPDATE attempts SET stage = 'full_interview',
+      contact = ${sql.json({ ...contact, consented_at: new Date().toISOString() })}
+    WHERE id = ${attemptId}::uuid AND stage = 'contact_requested'
+    RETURNING id`;
+  return rows.length > 0;
+}
+
+// "No thanks": nothing is stored.
+export async function declineContact(attemptId: string): Promise<boolean> {
+  if (!isUuid(attemptId)) return false;
+  const rows = await db()`
+    UPDATE attempts SET stage = 'contact_declined'
+    WHERE id = ${attemptId}::uuid AND stage = 'contact_requested'
+    RETURNING id`;
+  return rows.length > 0;
 }

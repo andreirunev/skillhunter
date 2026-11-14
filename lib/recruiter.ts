@@ -6,6 +6,7 @@ import type { FlagCode } from "./flags.ts";
 import type { Answer, AnswerKey, Skill, TaskPayload, TaskType } from "./tasks.ts";
 import type { Lang } from "./i18n.ts";
 import type { TicketTemplate } from "./tickets.ts";
+import { normalizeInviteCode, type Contact, type RecruiterStage, type Stage } from "./stage.ts";
 import { closeExpiredForTest, TIME_LIMIT_MINUTES } from "./timing.ts";
 
 // Recruiter-side data. Demo access is by company slug; a real deployment puts
@@ -41,6 +42,8 @@ export type CandidateRow = {
   total_ms: number; // finished_at - started_at, server timestamps (0 while in progress)
   limit_reached: boolean; // closed at the deadline
   invite_code: string | null;
+  stage: Stage;
+  contact: Contact | null; // only at stage full_interview (candidate consent)
 };
 
 // Arrival order only (newest first). Deliberately no correctness or flag counts.
@@ -52,7 +55,7 @@ export async function listCandidates(testId: string): Promise<CandidateRow[]> {
       (SELECT count(*)::int FROM answers WHERE attempt_id = a.id) AS answered,
       coalesce(extract(epoch from (a.finished_at - a.started_at)) * 1000, 0)::int AS total_ms,
       coalesce(a.finished_at >= a.started_at + make_interval(mins => ${TIME_LIMIT_MINUTES}), false) AS limit_reached,
-      i.code AS invite_code
+      i.code AS invite_code, a.stage, a.contact
     FROM attempts a LEFT JOIN invitations i ON i.attempt_id = a.id
     WHERE a.test_id = ${testId}::uuid
     ORDER BY a.started_at DESC`;
@@ -87,7 +90,7 @@ export async function getCandidate(testId: string, attemptId: string) {
       a.started_at, a.finished_at,
       coalesce(extract(epoch from (a.finished_at - a.started_at)) * 1000, 0)::int AS total_ms,
       coalesce(a.finished_at >= a.started_at + make_interval(mins => ${TIME_LIMIT_MINUTES}), false) AS limit_reached,
-      i.code AS invite_code
+      i.code AS invite_code, a.stage, a.contact
     FROM attempts a LEFT JOIN invitations i ON i.attempt_id = a.id
     WHERE a.id = ${attemptId}::uuid AND a.test_id = ${testId}::uuid`;
   if (!attempt) return null;
@@ -117,6 +120,35 @@ export async function setStatus(attemptId: string, status: Status): Promise<{ co
   }
   const [inv] = await sql<{ code: string }[]>`SELECT code FROM invitations WHERE attempt_id = ${attemptId}::uuid`;
   return { code: inv?.code ?? null };
+}
+
+// Mini-interview starts when the recruiter types the code from the
+// candidate's phone. Only from "anonymous", and only with the right code.
+export async function startInterview(attemptId: string, code: string): Promise<"ok" | "wrong_code" | "not_found"> {
+  if (!isUuid(attemptId)) return "not_found";
+  const sql = db();
+  const rows = await sql`
+    UPDATE attempts a SET stage = 'mini_interview', status = 'at_booth'
+    FROM invitations i
+    WHERE i.attempt_id = a.id AND a.id = ${attemptId}::uuid AND a.stage = 'anonymous'
+      AND upper(regexp_replace(i.code, '[^A-Za-z0-9]', '', 'g')) = ${normalizeInviteCode(code)}
+    RETURNING a.id`;
+  if (rows.length) return "ok";
+  const [exists] = await sql`SELECT 1 FROM attempts WHERE id = ${attemptId}::uuid`;
+  return exists ? "wrong_code" : "not_found";
+}
+
+// Recruiter's next step after the mini-interview: request contact details,
+// close ("Not this time"), or undo back to mini_interview. Allowed only until
+// the candidate acts. Returns the stage now stored.
+export async function setStage(attemptId: string, next: RecruiterStage): Promise<Stage | null> {
+  if (!isUuid(attemptId)) return null;
+  const sql = db();
+  await sql`
+    UPDATE attempts SET stage = ${next}
+    WHERE id = ${attemptId}::uuid AND stage IN ('mini_interview', 'contact_requested', 'closed')`;
+  const [row] = await sql<{ stage: Stage }[]>`SELECT stage FROM attempts WHERE id = ${attemptId}::uuid`;
+  return row?.stage ?? null;
 }
 
 export async function saveNote(attemptId: string, taskId: string, asked: boolean, note: string): Promise<boolean> {

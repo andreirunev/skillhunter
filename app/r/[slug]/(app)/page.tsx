@@ -5,9 +5,18 @@ import { FabButton } from "@/components/ui/FabButton";
 import { ScreenTitle } from "@/components/ui/ScreenTitle";
 import { getCompany, listCandidates } from "@/lib/recruiter";
 import { formatClock, formatMinutes, LANG_SHORT } from "@/lib/format";
+import type { Stage } from "@/lib/stage";
 import { CandidatesView, type CandidateItem } from "./CandidatesView";
 
 export const dynamic = "force-dynamic";
+
+// Where the booth flow stands, shown first in the row (anonymous level).
+const STAGE_NOTE: Partial<Record<Stage, string>> = {
+  mini_interview: "Short interview",
+  contact_requested: "Waiting for candidate details",
+  closed: "Not this time",
+  contact_declined: "Chose not to share details",
+};
 
 // Candidates tab: arrival order (newest first), never sorted by results.
 export default async function CandidatesPage(props: PageProps<"/r/[slug]">) {
@@ -24,12 +33,14 @@ export default async function CandidatesPage(props: PageProps<"/r/[slug]">) {
     status: c.status,
     finishedAt: c.finished_at?.getTime() ?? null,
     sub: [
+      ...(STAGE_NOTE[c.stage] ? [STAGE_NOTE[c.stage]] : []),
       c.finished_at
         ? `Finished ${formatClock(c.finished_at)} · ${formatMinutes(c.total_ms)}${c.limit_reached ? " · limit reached" : ""}`
         : `In progress · ${c.answered}/${company.task_count} tasks`,
       LANG_SHORT[c.lang] ?? c.lang,
     ].join(" · "),
     inviteCode: c.invite_code,
+    contact: c.stage === "full_interview" ? c.contact : null,
   }));
 
   return (
