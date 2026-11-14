@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { AvatarBadge } from "@/components/Avatar";
+import { Spinner } from "@/components/Spinner";
 import { makeAvatar, type Avatar } from "@/lib/avatar";
 import { LANGS, LANG_NAMES, t, type Lang } from "@/lib/i18n";
 
@@ -125,16 +126,17 @@ export function Activate({ token, state, initialAvatar, company, taskCount, minu
         </ul>
       </section>
 
-      <div className="fixed inset-x-0 bottom-0 border-t border-slate-300 bg-white px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">
+      <div data-dock className="fixed inset-x-0 bottom-0 border-t border-slate-300 bg-white px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">
         <div className="mx-auto max-w-md">
           {error && <p className="mb-2 text-center text-sm font-medium text-red-700" role="alert">{error}</p>}
           <button
             type="button"
             onClick={start}
             disabled={busy}
+            aria-busy={busy}
             className="btn btn-primary min-h-14 w-full text-lg"
           >
-            {busy ? "…" : `${t(lang, "start")} →`}
+            {busy ? <><Spinner />{t(lang, "saving")}</> : `${t(lang, "start")} →`}
           </button>
         </div>
       </div>

@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { Spinner } from "@/components/Spinner";
+import { toast } from "@/components/Toaster";
 
 // Follow-up at the booth: suggested questions, an "asked" tick and a short note.
 export function TaskNotes({ attemptId, taskId, questions, initialAsked, initialNote }: {
@@ -12,7 +14,7 @@ export function TaskNotes({ attemptId, taskId, questions, initialAsked, initialN
 }) {
   const [asked, setAsked] = useState(initialAsked);
   const [note, setNote] = useState(initialNote);
-  const [saved, setSaved] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [saved, setSaved] = useState<"idle" | "saving" | "error">("idle");
 
   async function save(nextAsked: boolean, nextNote: string) {
     setSaved("saving");
@@ -21,7 +23,8 @@ export function TaskNotes({ attemptId, taskId, questions, initialAsked, initialN
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ taskId, asked: nextAsked, note: nextNote }),
     }).catch(() => null);
-    setSaved(res?.ok ? "saved" : "error");
+    setSaved(res?.ok ? "idle" : "error");
+    if (res?.ok) toast("Note saved");
   }
 
   return (
@@ -52,8 +55,8 @@ export function TaskNotes({ attemptId, taskId, questions, initialAsked, initialN
         className="mt-1 w-full resize-y border border-slate-200 bg-white p-2.5 text-sm outline-none focus:border-brand-600"
       />
       {saved !== "idle" && (
-        <p className={`text-xs ${saved === "error" ? "text-red-700" : "text-slate-500"}`}>
-          {saved === "saving" ? "Saving…" : saved === "saved" ? "Saved" : "Could not save"}
+        <p className={`flex items-center gap-1.5 text-xs ${saved === "error" ? "text-red-700" : "text-slate-500"}`}>
+          {saved === "saving" ? <><Spinner />Saving…</> : "Could not save"}
         </p>
       )}
     </div>

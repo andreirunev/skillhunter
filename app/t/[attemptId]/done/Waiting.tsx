@@ -23,8 +23,9 @@ export function Waiting({ attemptId, lang, booth, companyName, initial }: Props)
   }, [attemptId, invitation]);
 
   if (invitation) {
+    // Keyed so it mounts fresh and fades in when the poll brings the invitation.
     return (
-      <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-3 px-4 py-6">
+      <main key="invited" className="mx-auto flex w-full max-w-md flex-1 animate-appear flex-col gap-3 px-4 py-6">
         <section className="border border-slate-900 bg-slate-900 p-4 text-white">
           <h1 className="text-2xl font-bold">{t(lang, "invitedTitle", { booth })}</h1>
           <p className="mt-1 text-white/85">{companyName}</p>

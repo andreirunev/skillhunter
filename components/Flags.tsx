@@ -7,7 +7,7 @@ export function FlagChip({ code }: { code: FlagCode }) {
     <details className="group border border-amber-300 bg-amber-50 text-sm open:w-full">
       <summary className="tap flex min-h-11 cursor-pointer list-none items-center gap-1.5 px-3 font-semibold text-amber-900">
         {info.label}
-        <span className="ml-1 text-amber-700 group-open:rotate-180" aria-hidden>▾</span>
+        <span className="ml-1 text-amber-700 transition-transform duration-150 group-open:rotate-180" aria-hidden>▾</span>
       </summary>
       <div className="space-y-1.5 px-3 pb-3 text-slate-700">
         <p><span className="font-semibold">Rule:</span> {info.rule}</p>

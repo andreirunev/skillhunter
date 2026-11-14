@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Spinner } from "@/components/Spinner";
 
 // Plain POST form: works without JS, and the server burns the code on entry.
 export function JoinForm({ initialCode, error }: { initialCode: string; error: string }) {
@@ -40,9 +41,10 @@ export function JoinForm({ initialCode, error }: { initialCode: string; error: s
       <button
         type="submit"
         disabled={pending}
+        aria-busy={pending}
         className="btn btn-primary min-h-12 text-base"
       >
-        {pending ? "Checking…" : "Start"}
+        {pending ? <><Spinner />Checking…</> : "Start"}
       </button>
     </form>
   );

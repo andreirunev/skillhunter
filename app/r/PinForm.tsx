@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import { Spinner } from "@/components/Spinner";
 import { checkPin } from "./actions";
 
 export function PinForm() {
@@ -25,9 +26,10 @@ export function PinForm() {
       <button
         type="submit"
         disabled={pending}
+        aria-busy={pending}
         className="btn btn-primary min-h-12 text-base"
       >
-        {pending ? "…" : "Open my booth"}
+        {pending ? <><Spinner />Checking…</> : "Open my booth"}
       </button>
     </form>
   );

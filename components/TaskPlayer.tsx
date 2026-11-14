@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { TaskInput } from "@/components/TaskInputs";
 import { AvatarBadge } from "@/components/Avatar";
+import { Spinner } from "@/components/Spinner";
 import { isAnswered, type Answer } from "@/lib/tasks";
 import { t, type MessageKey } from "@/lib/i18n";
 import type { PlayerAttempt, PlayerTask, SavedAnswer } from "@/lib/data";
@@ -135,7 +136,7 @@ export function TaskPlayer({ attempt, tasks, saved }: Props) {
         <TaskInput key={task.id} type={task.type} payload={task.payload} value={value} onChange={onChange} lang={lang} />
       </main>
 
-      <footer className="fixed inset-x-0 bottom-0 z-10 border-t border-slate-300 bg-white px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">
+      <footer data-dock className="fixed inset-x-0 bottom-0 z-10 border-t border-slate-300 bg-white px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">
         <div className="mx-auto max-w-md">
           {error && <p className="mb-2 text-center text-sm font-medium text-red-700" role="alert">{t(lang, "saveError")}</p>}
           <div className="flex items-center gap-3">
@@ -146,14 +147,14 @@ export function TaskPlayer({ attempt, tasks, saved }: Props) {
               </button>
             )}
             {answered ? (
-              <button type="button" onClick={() => goNext(value as Answer)} disabled={busy}
+              <button type="button" onClick={() => goNext(value as Answer)} disabled={busy} aria-busy={busy}
                 className="btn btn-primary min-h-14 flex-1 text-lg">
-                {busy ? "…" : isLast ? `${t(lang, "finish")} ✓` : `${t(lang, "next")} →`}
+                {busy ? <><Spinner />{t(lang, "saving")}</> : isLast ? `${t(lang, "finish")} ✓` : `${t(lang, "next")} →`}
               </button>
             ) : (
-              <button type="button" onClick={() => goNext(null)} disabled={busy}
+              <button type="button" onClick={() => goNext(null)} disabled={busy} aria-busy={busy}
                 className="btn btn-secondary min-h-14 flex-1 text-base text-slate-600">
-                {t(lang, "skip")} {isLast ? "✓" : "→"}
+                {busy ? <><Spinner />{t(lang, "saving")}</> : `${t(lang, "skip")} ${isLast ? "✓" : "→"}`}
               </button>
             )}
           </div>
