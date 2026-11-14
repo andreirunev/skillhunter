@@ -156,3 +156,24 @@ export async function listStatRows(testId: string): Promise<StatRow[]> {
 
 // "Reset demo data" is offered only when DEMO_MODE is set (e.g. DEMO_MODE=1).
 export const isDemoMode = () => /^(1|true|yes|on)$/i.test(process.env.DEMO_MODE ?? "");
+
+// A print batch = the codes created by one "Create and print": one INSERT, so
+// they share one expires_at (to the microsecond). Its id is that instant in
+// microseconds since 1970, so batches need no extra table or column.
+const BATCH_ID = /^\d{1,20}$/;
+
+export async function batchOf(token: string): Promise<string | null> {
+  const [row] = await db()<{ id: string }[]>`
+    SELECT (extract(epoch from expires_at) * 1000000)::bigint::text AS id FROM qr_tokens WHERE token = ${token}`;
+  return row?.id ?? null;
+}
+
+// The batch's codes, alphabetical. Taken ones are only marked as taken.
+export async function listBatch(testId: string, batchId: string): Promise<BoothCode[] | null> {
+  if (!BATCH_ID.test(batchId)) return null;
+  const rows = await db()<BoothCode[]>`
+    SELECT token AS code, status = 'activated' AS taken FROM qr_tokens
+    WHERE test_id = ${testId}::uuid AND (extract(epoch from expires_at) * 1000000)::bigint = ${batchId}::bigint
+    ORDER BY token`;
+  return rows.length ? [...rows] : null;
+}
