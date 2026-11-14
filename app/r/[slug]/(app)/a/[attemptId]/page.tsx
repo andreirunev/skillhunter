@@ -6,9 +6,9 @@ import { FlagRow } from "@/components/Flags";
 import { TaskNotes } from "@/components/TaskNotes";
 import { AvatarTile } from "@/components/ui/ListRow";
 import { getCandidate, getCompany, type DetailTask } from "@/lib/recruiter";
-import { OWN_PACE_NOTE } from "@/lib/flags";
 import { describeAnswer, GENERIC_FOLLOW_UPS, SKILLS, TYPE_LABELS } from "@/lib/tasks";
 import { formatClock, formatDuration, formatMinutes, LANG_SHORT } from "@/lib/format";
+import { TIME_LIMIT_MINUTES } from "@/lib/timing";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +20,6 @@ export default async function CandidatePage(props: PageProps<"/r/[slug]/a/[attem
   if (!data) notFound();
   const { attempt, tasks } = data;
 
-  const totalMs = tasks.reduce((sum, t) => sum + (t.time_ms ?? 0), 0);
   const answered = tasks.filter((t) => t.answered).length;
   const flagCount = tasks.reduce((sum, t) => sum + t.flags.length, 0);
 
@@ -35,13 +34,14 @@ export default async function CandidatePage(props: PageProps<"/r/[slug]/a/[attem
             <AvatarTile emoji={attempt.avatar_emoji} color={attempt.avatar_color} size={32} />
             <p className="min-w-0 truncate text-sm font-semibold">{attempt.avatar_name}</p>
             <span className="ml-auto shrink-0 text-[13px] text-muted">
-              {LANG_SHORT[attempt.lang] ?? attempt.lang}{attempt.own_pace && " · own pace"}
+              {LANG_SHORT[attempt.lang] ?? attempt.lang} · limit {TIME_LIMIT_MINUTES} min
             </span>
           </div>
           <dl className="grid grid-cols-3 gap-2">
             <Fact label={attempt.finished_at ? "Finished" : "In progress"}
               value={attempt.finished_at ? formatClock(attempt.finished_at) : `${answered}/${tasks.length}`} />
-            <Fact label="Total time" value={formatMinutes(totalMs)} />
+            <Fact label="Total time" value={attempt.finished_at ? formatMinutes(attempt.total_ms) : "–"}
+              note={attempt.limit_reached ? "Limit reached" : undefined} />
             <Fact label="Expected" value={`≈ ${formatMinutes(company.expected_sec * 1000)}`} />
           </dl>
           <p className={`flex items-center gap-2 text-sm font-semibold ${flagCount ? "text-warn" : "text-muted"}`}>
@@ -51,11 +51,10 @@ export default async function CandidatePage(props: PageProps<"/r/[slug]/a/[attem
           <p className="text-[13px] text-muted">
             Flags are three plain rules (very fast, took longer, changed 3+ times), not AI. They never lower anything.
           </p>
-          {attempt.own_pace && <p className="rounded-tile bg-ok/10 p-2.5 text-[13px] font-medium text-ok">{OWN_PACE_NOTE}</p>}
         </section>
 
         {tasks.map((t, i) => (
-          <TaskCard key={t.id} task={t} index={i} attemptId={attempt.id} />
+          <TaskCard key={t.id} task={t} index={i} attemptId={attempt.id} finished={Boolean(attempt.finished_at)} />
         ))}
       </div>
 
@@ -64,18 +63,20 @@ export default async function CandidatePage(props: PageProps<"/r/[slug]/a/[attem
   );
 }
 
-function Fact({ label, value }: { label: string; value: string }) {
+function Fact({ label, value, note }: { label: string; value: string; note?: string }) {
   return (
     <div className="min-w-0">
       <dt className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted">{label}</dt>
       <dd className="mt-0.5 truncate text-2xl font-bold tabular-nums leading-tight">{value}</dd>
+      {note && <dd className="text-[12px] font-semibold text-muted">{note}</dd>}
     </div>
   );
 }
 
 // One task: flags first (always open), the question, the answer with a key
 // badge, time vs expected, then the booth follow-up.
-function TaskCard({ task: t, index, attemptId }: { task: DetailTask; index: number; attemptId: string }) {
+// Not answered (time ran out, finished early or skipped) is never compared to the key.
+function TaskCard({ task: t, index, attemptId, finished }: { task: DetailTask; index: number; attemptId: string; finished: boolean }) {
   const skipped = t.answered && t.answer === null;
   return (
     <article className="flex flex-col gap-3 rounded-card border border-border bg-card p-4">
@@ -95,9 +96,9 @@ function TaskCard({ task: t, index, attemptId }: { task: DetailTask; index: numb
       </div>
 
       {!t.answered ? (
-        <p className="text-sm text-muted">Not answered yet.</p>
+        <p className="text-sm text-muted">{finished ? "Not answered" : "Not answered yet"}</p>
       ) : skipped ? (
-        <p className="text-sm text-muted">Skipped · {formatDuration(t.time_ms ?? 0)} on screen</p>
+        <p className="text-sm text-muted">Not answered (skipped) · {formatDuration(t.time_ms ?? 0)} on screen</p>
       ) : (
         <div className="flex flex-col gap-1.5">
           <p className="flex flex-wrap items-center gap-x-2.5 gap-y-1">

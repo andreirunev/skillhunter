@@ -6,6 +6,7 @@ import type { FlagCode } from "./flags.ts";
 import type { Answer, AnswerKey, Skill, TaskPayload, TaskType } from "./tasks.ts";
 import type { Lang } from "./i18n.ts";
 import type { TicketTemplate } from "./tickets.ts";
+import { closeExpiredForTest, TIME_LIMIT_MINUTES } from "./timing.ts";
 
 // Recruiter-side data. Demo access is by company slug; a real deployment puts
 // staff login in front of this. Nothing here scores, ranks or sorts by results.
@@ -33,22 +34,24 @@ export type CandidateRow = {
   avatar_emoji: string;
   avatar_color: string;
   lang: Lang;
-  own_pace: boolean;
   status: Status;
   started_at: Date;
   finished_at: Date | null;
   answered: number;
-  total_ms: number;
+  total_ms: number; // finished_at - started_at, server timestamps (0 while in progress)
+  limit_reached: boolean; // closed at the deadline
   invite_code: string | null;
 };
 
 // Arrival order only (newest first). Deliberately no correctness or flag counts.
 export async function listCandidates(testId: string): Promise<CandidateRow[]> {
+  await closeExpiredForTest(testId);
   const rows = await db()<CandidateRow[]>`
-    SELECT a.id, a.avatar_name, a.avatar_emoji, a.avatar_color, a.lang, a.own_pace, a.status,
+    SELECT a.id, a.avatar_name, a.avatar_emoji, a.avatar_color, a.lang, a.status,
       a.started_at, a.finished_at,
       (SELECT count(*)::int FROM answers WHERE attempt_id = a.id) AS answered,
-      (SELECT coalesce(sum(time_ms), 0)::int FROM answers WHERE attempt_id = a.id) AS total_ms,
+      coalesce(extract(epoch from (a.finished_at - a.started_at)) * 1000, 0)::int AS total_ms,
+      coalesce(a.finished_at >= a.started_at + make_interval(mins => ${TIME_LIMIT_MINUTES}), false) AS limit_reached,
       i.code AS invite_code
     FROM attempts a LEFT JOIN invitations i ON i.attempt_id = a.id
     WHERE a.test_id = ${testId}::uuid
@@ -77,10 +80,14 @@ export type DetailTask = {
 
 export async function getCandidate(testId: string, attemptId: string) {
   if (!isUuid(attemptId)) return null;
+  await closeExpiredForTest(testId);
   const sql = db();
-  const [attempt] = await sql<(Omit<CandidateRow, "answered" | "total_ms">)[]>`
-    SELECT a.id, a.avatar_name, a.avatar_emoji, a.avatar_color, a.lang, a.own_pace, a.status,
-      a.started_at, a.finished_at, i.code AS invite_code
+  const [attempt] = await sql<(Omit<CandidateRow, "answered">)[]>`
+    SELECT a.id, a.avatar_name, a.avatar_emoji, a.avatar_color, a.lang, a.status,
+      a.started_at, a.finished_at,
+      coalesce(extract(epoch from (a.finished_at - a.started_at)) * 1000, 0)::int AS total_ms,
+      coalesce(a.finished_at >= a.started_at + make_interval(mins => ${TIME_LIMIT_MINUTES}), false) AS limit_reached,
+      i.code AS invite_code
     FROM attempts a LEFT JOIN invitations i ON i.attempt_id = a.id
     WHERE a.id = ${attemptId}::uuid AND a.test_id = ${testId}::uuid`;
   if (!attempt) return null;
@@ -148,6 +155,7 @@ export type StatRow = { status: Status; finished: boolean; this_week: boolean };
 // For the Stats tab: one row per attempt, counted on the page. "This week"
 // starts Monday 00:00 event time. Counts only, nothing per person.
 export async function listStatRows(testId: string): Promise<StatRow[]> {
+  await closeExpiredForTest(testId);
   const rows = await db()<StatRow[]>`
     SELECT status, finished_at IS NOT NULL AS finished,
       started_at >= (date_trunc('week', now() AT TIME ZONE 'Europe/Helsinki') AT TIME ZONE 'Europe/Helsinki') AS this_week

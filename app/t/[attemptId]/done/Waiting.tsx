@@ -5,13 +5,13 @@ import { useLang } from "@/components/CandidateShell";
 import { t } from "@/lib/i18n";
 
 type Invitation = { code: string; qrSvg: string };
-type Props = { attemptId: string; booth: string; initial: Invitation | null };
+type Props = { attemptId: string; booth: string; timeUp: boolean; initial: Invitation | null };
 
 const POLL_MS = 5000;
 
 // Finish screen. No score, no verdict: only "saved", then an invitation if a
 // recruiter sends one.
-export function Waiting({ attemptId, booth, initial }: Props) {
+export function Waiting({ attemptId, booth, timeUp, initial }: Props) {
   const lang = useLang();
   const [invitation, setInvitation] = useState<Invitation | null>(initial);
 
@@ -45,7 +45,7 @@ export function Waiting({ attemptId, booth, initial }: Props) {
 
   return (
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 px-4 pb-8 pt-6">
-      <h1 className="text-[28px] font-bold leading-tight tracking-tight">{t(lang, "doneTitle")}</h1>
+      <h1 className="text-[28px] font-bold leading-tight tracking-tight">{t(lang, timeUp ? "timeUp" : "doneTitle")}</h1>
       <section className="flex flex-col gap-3 rounded-card border border-border bg-card p-4">
         <div className="flex items-center gap-3 font-semibold" role="status">
           <span className="relative flex size-3">

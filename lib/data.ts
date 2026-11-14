@@ -5,6 +5,7 @@ import { makeAvatar } from "./avatar.ts";
 import { computeFlags, type FlagCode } from "./flags.ts";
 import { isAnswered, matchesKey, type Answer, type AnswerKey, type TaskPayload, type TaskType } from "./tasks.ts";
 import type { Lang } from "./i18n.ts";
+import { closeIfExpired, TIME_LIMIT_MINUTES } from "./timing.ts";
 
 // Data access for the candidate flow. Nothing here returns an answer key,
 // a flag or a recruiter label to the candidate side.
@@ -71,11 +72,13 @@ export async function ownsAttempt(attemptId: string, ownerHash: string | null): 
   return rows.length > 0;
 }
 
-// UI language, set by the owning device before it finishes. The avatar stays
-// the one assigned at entry and own pace stays off: time is always counted.
+// Start: UI language, and the clock starts now (started_at, server time) unless
+// an answer is already saved. Owning device only, only before it finishes.
+// The avatar stays the one assigned at entry.
 export async function setupAttempt(token: string, ownerHash: string, lang: Lang): Promise<string | null> {
   const [row] = await db()<{ id: string }[]>`
-    UPDATE attempts a SET lang = ${lang}, own_pace = false
+    UPDATE attempts a SET lang = ${lang},
+      started_at = CASE WHEN EXISTS (SELECT 1 FROM answers WHERE attempt_id = a.id) THEN a.started_at ELSE now() END
     FROM qr_tokens q
     WHERE q.token = ${token} AND a.id = q.attempt_id AND a.owner_hash = ${ownerHash} AND a.finished_at IS NULL
     RETURNING a.id`;
@@ -117,8 +120,8 @@ export async function checkCode(code: string, ownerHash: string | null): Promise
 export type PlayerAttempt = {
   id: string;
   lang: Lang;
-  own_pace: boolean;
   finished: boolean;
+  remaining_ms: number; // until the deadline, measured on the server
   avatar_name: string;
   avatar_emoji: string;
   avatar_color: string;
@@ -131,9 +134,11 @@ export type SavedAnswer = { task_id: string; answer: Answer; time_ms: number; ch
 
 export async function getPlayerData(attemptId: string) {
   if (!isUuid(attemptId)) return null;
+  await closeIfExpired(attemptId);
   const sql = db();
   const [attempt] = await sql<PlayerAttempt[]>`
-    SELECT a.id, a.lang, a.own_pace, a.finished_at IS NOT NULL AS finished,
+    SELECT a.id, a.lang, a.finished_at IS NOT NULL AS finished,
+      greatest(0, extract(epoch from (a.started_at + make_interval(mins => ${TIME_LIMIT_MINUTES}) - now())) * 1000)::int AS remaining_ms,
       a.avatar_name, a.avatar_emoji, a.avatar_color,
       c.name AS company_name, c.booth, c.color AS company_color
     FROM attempts a JOIN tests t ON t.id = a.test_id JOIN companies c ON c.id = t.company_id
@@ -160,18 +165,25 @@ export async function saveAnswer(
 ): Promise<SaveResult> {
   if (!isUuid(attemptId) || !isUuid(taskId)) return "not_found";
   const sql = db();
-  const [ctx] = await sql<{ own_pace: boolean; finished: boolean; type: TaskType; payload: TaskPayload; answer_key: AnswerKey; expected_sec: number }[]>`
-    SELECT a.own_pace, a.finished_at IS NOT NULL AS finished, tt.type, tt.payload, tt.answer_key, tt.expected_sec
+  const [ctx] = await sql<{ finished: boolean; expired: boolean; type: TaskType; payload: TaskPayload; answer_key: AnswerKey; expected_sec: number }[]>`
+    SELECT a.finished_at IS NOT NULL AS finished,
+      now() > a.started_at + make_interval(mins => ${TIME_LIMIT_MINUTES}) AS expired,
+      tt.type, tt.payload, tt.answer_key, tt.expected_sec
     FROM attempts a JOIN test_tasks tt ON tt.test_id = a.test_id AND tt.id = ${taskId}::uuid
     WHERE a.id = ${attemptId}::uuid`;
   if (!ctx) return "not_found";
   if (ctx.finished) return "finished";
+  // Past the deadline: close the attempt and refuse the answer (409).
+  if (ctx.expired) {
+    await closeIfExpired(attemptId);
+    return "finished";
+  }
   const skipped = answer === null;
   if (!skipped && !isAnswered(ctx.type, ctx.payload, answer)) return "invalid";
 
   const time = Math.max(0, Math.min(Math.round(timeMs), 2 * 60 * 60 * 1000));
   const changeCount = Math.max(0, Math.min(Math.round(changes), 99));
-  const flags: FlagCode[] = computeFlags({ timeMs: time, expectedSec: ctx.expected_sec, changes: changeCount, ownPace: ctx.own_pace, skipped });
+  const flags: FlagCode[] = computeFlags({ timeMs: time, expectedSec: ctx.expected_sec, changes: changeCount, skipped });
   await sql`
     INSERT INTO answers (attempt_id, task_id, answer, matches_key, time_ms, changes, flags)
     VALUES (${attemptId}::uuid, ${taskId}::uuid, ${skipped ? null : sql.json(answer)},
@@ -182,19 +194,24 @@ export async function saveAnswer(
   return "ok";
 }
 
+// "Finish" before the deadline: finished_at = now. A late call still stops
+// the clock at the deadline.
 export async function finishAttempt(attemptId: string): Promise<boolean> {
   if (!isUuid(attemptId)) return false;
   const rows = await db()`
-    UPDATE attempts SET finished_at = coalesce(finished_at, now())
+    UPDATE attempts SET finished_at = coalesce(finished_at, least(now(), started_at + make_interval(mins => ${TIME_LIMIT_MINUTES})))
     WHERE id = ${attemptId}::uuid RETURNING id`;
   return rows.length > 0;
 }
 
-// What the candidate may know: only whether they are invited, and the code.
+// What the candidate may know: whether time ran out, whether they are
+// invited, and the code.
 export async function getInvitationView(attemptId: string) {
   if (!isUuid(attemptId)) return null;
-  const [row] = await db()<{ lang: Lang; booth: string; company_name: string; finished: boolean; code: string | null }[]>`
-    SELECT a.lang, c.booth, c.name AS company_name, a.finished_at IS NOT NULL AS finished, i.code
+  await closeIfExpired(attemptId);
+  const [row] = await db()<{ lang: Lang; booth: string; company_name: string; finished: boolean; limit_reached: boolean; code: string | null }[]>`
+    SELECT a.lang, c.booth, c.name AS company_name, a.finished_at IS NOT NULL AS finished,
+      coalesce(a.finished_at >= a.started_at + make_interval(mins => ${TIME_LIMIT_MINUTES}), false) AS limit_reached, i.code
     FROM attempts a
     JOIN tests t ON t.id = a.test_id JOIN companies c ON c.id = t.company_id
     LEFT JOIN invitations i ON i.attempt_id = a.id

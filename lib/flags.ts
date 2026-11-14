@@ -13,13 +13,12 @@ export function computeFlags(input: {
   timeMs: number;
   expectedSec: number;
   changes: number;
-  ownPace: boolean;
   skipped: boolean;
 }): FlagCode[] {
   const flags: FlagCode[] = [];
   const expectedMs = input.expectedSec * 1000;
-  // Own-pace mode switches time flags off; a skipped task has no meaningful time.
-  if (!input.ownPace && !input.skipped) {
+  // A skipped task has no meaningful time.
+  if (!input.skipped) {
     if (input.timeMs < expectedMs * FLAG_RULES.fastBelowShare) flags.push("fast");
     if (input.timeMs > expectedMs * FLAG_RULES.slowAboveFactor) flags.push("slow");
   }
@@ -51,4 +50,3 @@ export const FLAG_INFO: Record<FlagCode, { emoji: string; label: string; rule: s
   },
 };
 
-export const OWN_PACE_NOTE = "Own-pace mode was on: time flags are switched off for this candidate.";

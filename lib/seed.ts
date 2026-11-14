@@ -133,14 +133,13 @@ export async function seed(sql: postgres.Sql, { fresh = false } = {}) {
     for (let i = 0; i < CANDIDATE_STATUSES.length; i++) {
       const id = randomUUID();
       const ability = 0.45 + rand() * 0.5;
-      const ownPace = i === 5;
       const avatar = makeAvatar(rand);
       const startedAt = now - (25 + i * 17 + Math.floor(rand() * 10)) * 60_000;
       const answeredCount = i === 0 ? Math.ceil(defs.length / 2) : defs.length; // #0 is still in progress
       let elapsed = 40_000; // activation + avatar
       defs.slice(0, answeredCount).forEach((def, idx) => {
         const r = rand();
-        const factor = r < 0.06 ? 0.1 : r > 0.94 ? 3.5 + rand() * 1.5 : 0.6 + rand() * (ownPace ? 1.6 : 1.0);
+        const factor = r < 0.06 ? 0.1 : r > 0.94 ? 3.5 + rand() * 1.5 : 0.6 + rand();
         const timeMs = Math.round(def.expectedSec * 1000 * factor);
         const skipped = rand() < 0.03;
         const answer = skipped ? null : rand() < ability ? def.key.value : wrongAnswer(def, rand);
@@ -153,7 +152,7 @@ export async function seed(sql: postgres.Sql, { fresh = false } = {}) {
           matches_key: matchesKey(def.type, answer, def.key),
           time_ms: timeMs,
           changes,
-          flags: sql.json(computeFlags({ timeMs, expectedSec: def.expectedSec, changes, ownPace, skipped })),
+          flags: sql.json(computeFlags({ timeMs, expectedSec: def.expectedSec, changes, skipped })),
         });
       });
       const status = CANDIDATE_STATUSES[i];
@@ -164,7 +163,6 @@ export async function seed(sql: postgres.Sql, { fresh = false } = {}) {
         avatar_emoji: avatar.emoji,
         avatar_color: avatar.color,
         lang: ["en", "fi", "sv", "en"][Math.floor(rand() * 4)],
-        own_pace: ownPace,
         started_at: new Date(startedAt),
         finished_at: answeredCount === defs.length ? new Date(startedAt + elapsed) : null,
         status,

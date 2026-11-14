@@ -26,6 +26,7 @@ export default async function DonePage(props: PageProps<"/t/[attemptId]/done">) 
       <Waiting
         attemptId={attemptId}
         booth={view.booth}
+        timeUp={view.limit_reached}
         initial={view.code && qrSvg ? { code: view.code, qrSvg } : null}
       />
     </CandidateShell>

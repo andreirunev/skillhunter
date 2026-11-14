@@ -15,11 +15,12 @@ type Props = {
   avatar: Avatar;
   taskCount: number;
   minutes: number;
+  limitMinutes: number;
 };
 
 // Start screen. The avatar was assigned when the code was entered and cannot
-// be changed here. Time is always recorded (no own-pace switch).
-export function Activate({ token, state, avatar, taskCount, minutes }: Props) {
+// be changed here. Pressing Start starts the clock on the server.
+export function Activate({ token, state, avatar, taskCount, minutes, limitMinutes }: Props) {
   const router = useRouter();
   const lang = useLang();
   const [busy, setBusy] = useState(false);
@@ -31,7 +32,7 @@ export function Activate({ token, state, avatar, taskCount, minutes }: Props) {
     const res = await fetch("/api/activate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token, ...avatar, lang, ownPace: false }),
+      body: JSON.stringify({ token, ...avatar, lang }),
     }).catch(() => null);
     const data = res?.ok ? await res.json() : null;
     if (!data?.attemptId) {
@@ -58,7 +59,7 @@ export function Activate({ token, state, avatar, taskCount, minutes }: Props) {
       <div>
         <h1 className="text-[28px] font-bold leading-tight tracking-tight">{t(lang, "yourTest")}</h1>
         <p className="mt-1 text-[15px] text-muted">
-          {t(lang, "minutes", { min: minutes })} · {t(lang, "tasks", { n: taskCount })}
+          {t(lang, "minutes", { min: minutes })} · {t(lang, "tasks", { n: taskCount })} · {t(lang, "limit", { min: limitMinutes })}
         </p>
       </div>
 

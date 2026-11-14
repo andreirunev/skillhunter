@@ -11,6 +11,11 @@ import type { PlayerAttempt, PlayerTask, SavedAnswer } from "@/lib/data";
 
 type Props = { attempt: PlayerAttempt; tasks: PlayerTask[]; saved: SavedAnswer[] };
 
+const clock = (ms: number) => {
+  const s = Math.ceil(ms / 1000);
+  return `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+};
+
 export function TaskPlayer({ attempt, tasks, saved }: Props) {
   const router = useRouter();
   const lang = useLang();
@@ -26,6 +31,23 @@ export function TaskPlayer({ attempt, tasks, saved }: Props) {
     Object.fromEntries(saved.map((s) => [s.task_id, s.changes])));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(false);
+
+  // Countdown to the server deadline (started_at + limit), counted from the
+  // server's remaining time so the phone's clock does not matter. The server
+  // enforces the limit; this only shows it and leaves when it has passed.
+  const [leftMs, setLeftMs] = useState(attempt.remaining_ms);
+  useEffect(() => {
+    const endAt = Date.now() + attempt.remaining_ms;
+    const timer = setInterval(() => {
+      const left = endAt - Date.now();
+      setLeftMs(Math.max(0, left));
+      if (left < -1500) {
+        clearInterval(timer);
+        router.replace(`/t/${attempt.id}/done`);
+      }
+    }, 500);
+    return () => clearInterval(timer);
+  }, [attempt.id, attempt.remaining_ms, router]);
 
   // Time on each task accumulates across visits; only time on screen counts.
   const timeMs = useRef<Record<string, number>>(Object.fromEntries(saved.map((s) => [s.task_id, s.time_ms])));
@@ -112,6 +134,9 @@ export function TaskPlayer({ attempt, tasks, saved }: Props) {
       <div className="px-4 pt-4">
         <div className="flex items-center justify-between text-[13px] font-semibold text-muted">
           <span>{t(lang, "progress", { i: index + 1, n: tasks.length })}</span>
+          <span role="timer" className={`tabular-nums ${leftMs < 120_000 ? "text-warn" : ""}`}>
+            {t(lang, "timeLeft", { time: clock(leftMs) })}
+          </span>
         </div>
         <div className="mt-2 h-1 overflow-hidden rounded-pill bg-track" role="progressbar" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100}>
           <div className="h-full rounded-pill bg-accent transition-[width] duration-150" style={{ width: `${progress}%` }} />

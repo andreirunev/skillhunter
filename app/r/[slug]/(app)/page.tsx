@@ -25,11 +25,10 @@ export default async function CandidatesPage(props: PageProps<"/r/[slug]">) {
     finishedAt: c.finished_at?.getTime() ?? null,
     sub: [
       c.finished_at
-        ? `Finished ${formatClock(c.finished_at)} · ${formatMinutes(c.total_ms)}`
+        ? `Finished ${formatClock(c.finished_at)} · ${formatMinutes(c.total_ms)}${c.limit_reached ? " · limit reached" : ""}`
         : `In progress · ${c.answered}/${company.task_count} tasks`,
       LANG_SHORT[c.lang] ?? c.lang,
     ].join(" · "),
-    ownPace: c.own_pace,
     inviteCode: c.invite_code,
   }));
 

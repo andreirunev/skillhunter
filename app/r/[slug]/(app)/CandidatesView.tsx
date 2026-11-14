@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CircleDot, Handshake, Hourglass, Send, ThumbsUp, Ticket } from "lucide-react";
+import { CircleDot, Handshake, Send, ThumbsUp, Ticket } from "lucide-react";
 import { FilterPills } from "@/components/ui/FilterPills";
 import { AvatarTile, ListRow } from "@/components/ui/ListRow";
 import { SectionLabel } from "@/components/ui/ScreenTitle";
@@ -19,7 +19,6 @@ export type CandidateItem = {
   status: Status;
   finishedAt: number | null;
   sub: string;
-  ownPace: boolean;
   inviteCode: string | null;
 };
 
@@ -103,11 +102,8 @@ function Section({ label, slug, items }: { label: string; slug: string; items: C
             <li key={c.id}>
               <ListRow href={`/r/${slug}/a/${c.id}`} title={c.name} sub={c.sub}
                 leading={<AvatarTile emoji={c.emoji} color={c.color} />}
-                meta={(c.inviteCode || c.ownPace) && (
-                  <>
-                    {c.inviteCode && <span className="inline-flex items-center gap-1"><Ticket className="size-3.5" aria-hidden />{c.inviteCode}</span>}
-                    {c.ownPace && <span className="inline-flex items-center gap-1"><Hourglass className="size-3.5" aria-hidden />Own pace</span>}
-                  </>
+                meta={c.inviteCode && (
+                  <span className="inline-flex items-center gap-1"><Ticket className="size-3.5" aria-hidden />{c.inviteCode}</span>
                 )}
                 trailing={<StatusPill status={c.status} />} />
             </li>
