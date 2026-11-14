@@ -92,25 +92,29 @@ State problem figures only as clearly labelled assumptions/estimates. Demo uses 
 ## 5. Technical plan
 
 ### Stack (chosen)
-- **Next.js 16 (App Router) + TypeScript + Tailwind v4 + better-sqlite3 + qrcode.** SQLite file, schema created and synthetic data seeded on boot.
-- **Deploy on Railway or Render as a Node server** (not Vercel serverless, SQLite needs a writable disk; re-seeding on boot is fine for the demo).
-- Create the app: `npx create-next-app@latest skillscan --ts --tailwind --app --no-src-dir --eslint --import-alias "@/*" --use-npm --yes`, then `npm i better-sqlite3 qrcode` and `npm i -D @types/better-sqlite3 @types/qrcode`.
+- **Next.js 16 (App Router) + TypeScript + Tailwind v4 + Postgres (Supabase) via `postgres` (postgres.js) + qrcode.** Plain SQL, no ORM, no extra abstractions.
+- **Deploy: Next.js on Vercel, Postgres on Supabase.** Nothing runs on boot (serverless).
+- **One env var: `DATABASE_URL`** = Supabase *Transaction pooler* URI (port 6543). Locally in `.env.local` (gitignored; empty template in `.env.example`), in production in the Vercel project env vars. Never commit or print it.
+- **Database scripts** (both read `DATABASE_URL` from `.env.local`): `npm run db:init` creates the tables (`CREATE TABLE IF NOT EXISTS`, safe to re-run); `npm run db:seed` seeds the demo data (re-runnable, no duplicates).
+- Create the app: `npx create-next-app@latest skillscan --ts --tailwind --app --no-src-dir --eslint --import-alias "@/*" --use-npm --yes`, then `npm i postgres qrcode` and `npm i -D @types/qrcode`.
 
 ### Next.js 16 gotchas (this version differs from older docs)
 - `AGENTS.md` says to read the bundled docs in `node_modules/next/dist/docs/` before coding. Do it for any API you're unsure about.
-- The generated `next.config.ts` had `cacheComponents: true` and `partialPrefetching: true`. **Remove both** (the previous caching model is simpler for this app) and add `serverExternalPackages: ["better-sqlite3"]`.
+- The generated `next.config.ts` had `cacheComponents: true` and `partialPrefetching: true`. **Remove both** (the previous caching model is simpler for this app).
 - The generated config also had a `turbopack.rules` entry for `@tailwindcss/turbopack`. If the build complains, use the standard Tailwind v4 setup with `@tailwindcss/postcss` and a `postcss.config.mjs`.
 - `params` and `searchParams` in pages and route handlers are Promises: `await` them.
 - Mark DB-reading pages and routes dynamic (`export const dynamic = "force-dynamic"`).
 - Route handlers live in `app/api/**/route.ts`.
+- DB access: `db()` in `lib/db.ts` returns the postgres.js client (`prepare: false` because the transaction pooler cannot keep prepared statements, small `max`, `ssl: "require"`). All data access functions are async.
 
-### Data model (SQLite)
+### Data model (Postgres, schema in `lib/db.ts`)
+Ids are `uuid` (`gen_random_uuid()`), except the QR token (`text`). Times are `timestamptz`. JSON fields are `jsonb`. RLS is enabled with no policies, so Supabase's public REST API cannot read the tables; the app connects as the table owner.
 - `companies(id, slug, name, sector, booth, color)`
 - `tests(id, company_id, title)`
-- `test_tasks(id, test_id, position, type, payload JSON, answer_key JSON, expected_sec, skill, sector, follow_ups JSON)`
+- `test_tasks(id, test_id, position, type, payload jsonb, answer_key jsonb, expected_sec, skill, sector, follow_ups jsonb)`
 - `qr_tokens(token, test_id, status new|activated, expires_at, attempt_id)`
 - `attempts(id, test_id, avatar_name, avatar_emoji, avatar_color, lang, own_pace, started_at, finished_at, status new|invited|at_booth|good_fit|needs_review|interview|not_now)`
-- `answers(attempt_id, task_id, answer JSON, matches_key bool, time_ms, changes)`
+- `answers(attempt_id, task_id, answer jsonb, matches_key bool, time_ms, changes, flags jsonb)`
 - `invitations(attempt_id, code, sent_at)`
 - `recruiter_notes(attempt_id, task_id, asked bool, note)`
 - The task library (sector packs) lives in code (`lib/library.ts`), copied into `test_tasks` when a company adds a task.
@@ -122,7 +126,7 @@ State problem figures only as clearly labelled assumptions/estimates. Demo uses 
 - API: activate token, save answer, finish attempt, invitation (create/poll), status update, task CRUD, token generation, data deletion.
 
 ### Seed (synthetic)
-4 companies (cleaning, construction/welding, logistics, IT), each with a test and ~8 synthetic candidates with varied answers and timings, so every dashboard looks alive. Deterministic random generator.
+4 companies (cleaning, construction/welding, logistics, IT), each with a test and ~8 synthetic candidates with varied answers and timings, so every dashboard looks alive. Deterministic random generator. Loaded with `npm run db:seed`.
 
 ### Build order (about 10 h)
 1. h0-1: scaffold, config fixes, DB schema, seed, deploy empty skeleton.

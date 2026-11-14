@@ -1,4 +1,4 @@
-import type { Db } from "./db";
+import type postgres from "postgres";
 
 // Fictional companies, one per sector, so every trade is visible in the demo.
 export const DEMO_COMPANIES = [
@@ -8,14 +8,18 @@ export const DEMO_COMPANIES = [
   { slug: "pilvi", name: "Pilvi Code", sector: "it", booth: "D03", color: "#8B5CF6", test: "Junior developer check" },
 ];
 
-// Called inside the boot transaction when the database is empty.
-export function seed(db: Db) {
-  const insertCompany = db.prepare(
-    "INSERT INTO companies (slug, name, sector, booth, color) VALUES (?, ?, ?, ?, ?)",
-  );
-  const insertTest = db.prepare("INSERT INTO tests (company_id, title) VALUES (?, ?)");
+// Safe to re-run: companies are upserted by slug, a test is added only if missing.
+export async function seed(sql: postgres.Sql) {
   for (const c of DEMO_COMPANIES) {
-    const { lastInsertRowid } = insertCompany.run(c.slug, c.name, c.sector, c.booth, c.color);
-    insertTest.run(lastInsertRowid, c.test);
+    const [company] = await sql<{ id: string }[]>`
+      INSERT INTO companies (slug, name, sector, booth, color)
+      VALUES (${c.slug}, ${c.name}, ${c.sector}, ${c.booth}, ${c.color})
+      ON CONFLICT (slug) DO UPDATE SET
+        name = EXCLUDED.name, sector = EXCLUDED.sector, booth = EXCLUDED.booth, color = EXCLUDED.color
+      RETURNING id`;
+    await sql`
+      INSERT INTO tests (company_id, title)
+      SELECT ${company.id}::uuid, ${c.test}
+      WHERE NOT EXISTS (SELECT 1 FROM tests WHERE company_id = ${company.id}::uuid)`;
   }
 }

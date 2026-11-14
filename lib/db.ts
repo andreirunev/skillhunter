@@ -1,133 +1,134 @@
-import Database from "better-sqlite3";
-import fs from "node:fs";
-import path from "node:path";
-import { seed } from "./seed";
+import postgres from "postgres";
 
-export type Db = Database.Database;
+// Plain SQL over postgres.js. The only setting is DATABASE_URL: the Supabase
+// transaction pooler URI (port 6543), from .env.local or the Vercel env vars.
 
-// Bump when the schema changes: the local file is then dropped and re-seeded.
-// Safe because the database only ever holds synthetic demo data.
-const SCHEMA_VERSION = 1;
-
-// Drop order matters: children before parents (foreign keys are on).
-const TABLES = [
-  "recruiter_notes",
-  "invitations",
-  "answers",
-  "qr_tokens",
-  "attempts",
-  "test_tasks",
-  "tests",
-  "companies",
-];
-
-// Times are epoch milliseconds. JSON columns are stored as TEXT.
+// Ids are uuids, times are timestamptz, structured fields are jsonb.
 // Deliberately absent: names, contacts, IP addresses, location, device data.
-const SCHEMA = `
-CREATE TABLE companies (
-  id     INTEGER PRIMARY KEY,
-  slug   TEXT NOT NULL UNIQUE,
-  name   TEXT NOT NULL,
-  sector TEXT NOT NULL,
-  booth  TEXT NOT NULL,
-  color  TEXT NOT NULL
+export const SCHEMA = `
+CREATE TABLE IF NOT EXISTS companies (
+  id     uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  slug   text NOT NULL UNIQUE,
+  name   text NOT NULL,
+  sector text NOT NULL,
+  booth  text NOT NULL,
+  color  text NOT NULL
 );
 
-CREATE TABLE tests (
-  id         INTEGER PRIMARY KEY,
-  company_id INTEGER NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
-  title      TEXT NOT NULL
+CREATE TABLE IF NOT EXISTS tests (
+  id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id uuid NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  title      text NOT NULL
 );
 
-CREATE TABLE test_tasks (
-  id           INTEGER PRIMARY KEY,
-  test_id      INTEGER NOT NULL REFERENCES tests(id) ON DELETE CASCADE,
-  position     INTEGER NOT NULL,
-  type         TEXT NOT NULL CHECK (type IN ('choice', 'multi', 'order', 'match', 'number')),
-  payload      TEXT NOT NULL,
-  answer_key   TEXT NOT NULL,
-  expected_sec INTEGER NOT NULL,
-  skill        TEXT NOT NULL,
-  sector       TEXT NOT NULL,
-  follow_ups   TEXT NOT NULL
+CREATE TABLE IF NOT EXISTS test_tasks (
+  id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  test_id      uuid NOT NULL REFERENCES tests(id) ON DELETE CASCADE,
+  position     integer NOT NULL,
+  type         text NOT NULL CHECK (type IN ('choice', 'multi', 'order', 'match', 'number')),
+  payload      jsonb NOT NULL,
+  answer_key   jsonb NOT NULL,
+  expected_sec integer NOT NULL CHECK (expected_sec > 0),
+  skill        text NOT NULL,
+  sector       text NOT NULL,
+  follow_ups   jsonb NOT NULL DEFAULT '[]'
 );
 
-CREATE TABLE attempts (
-  id           TEXT PRIMARY KEY,
-  test_id      INTEGER NOT NULL REFERENCES tests(id) ON DELETE CASCADE,
-  avatar_name  TEXT NOT NULL,
-  avatar_emoji TEXT NOT NULL,
-  avatar_color TEXT NOT NULL,
-  lang         TEXT NOT NULL DEFAULT 'en' CHECK (lang IN ('en', 'fi', 'ru')),
-  own_pace     INTEGER NOT NULL DEFAULT 0,
-  started_at   INTEGER NOT NULL,
-  finished_at  INTEGER,
-  status       TEXT NOT NULL DEFAULT 'new' CHECK (status IN
+CREATE TABLE IF NOT EXISTS attempts (
+  id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  test_id      uuid NOT NULL REFERENCES tests(id) ON DELETE CASCADE,
+  avatar_name  text NOT NULL,
+  avatar_emoji text NOT NULL,
+  avatar_color text NOT NULL,
+  lang         text NOT NULL DEFAULT 'en' CHECK (lang IN ('en', 'fi', 'ru')),
+  own_pace     boolean NOT NULL DEFAULT false,
+  started_at   timestamptz NOT NULL DEFAULT now(),
+  finished_at  timestamptz,
+  status       text NOT NULL DEFAULT 'new' CHECK (status IN
     ('new', 'invited', 'at_booth', 'good_fit', 'needs_review', 'interview', 'not_now'))
 );
 
-CREATE TABLE qr_tokens (
-  token      TEXT PRIMARY KEY,
-  test_id    INTEGER NOT NULL REFERENCES tests(id) ON DELETE CASCADE,
-  status     TEXT NOT NULL DEFAULT 'new' CHECK (status IN ('new', 'activated')),
-  expires_at INTEGER NOT NULL,
-  attempt_id TEXT REFERENCES attempts(id) ON DELETE SET NULL
+CREATE TABLE IF NOT EXISTS qr_tokens (
+  token      text PRIMARY KEY,
+  test_id    uuid NOT NULL REFERENCES tests(id) ON DELETE CASCADE,
+  status     text NOT NULL DEFAULT 'new' CHECK (status IN ('new', 'activated')),
+  expires_at timestamptz NOT NULL,
+  attempt_id uuid REFERENCES attempts(id) ON DELETE SET NULL
 );
 
-CREATE TABLE answers (
-  attempt_id  TEXT NOT NULL REFERENCES attempts(id) ON DELETE CASCADE,
-  task_id     INTEGER NOT NULL REFERENCES test_tasks(id) ON DELETE CASCADE,
-  answer      TEXT NOT NULL,
-  matches_key INTEGER NOT NULL,
-  time_ms     INTEGER NOT NULL,
-  changes     INTEGER NOT NULL DEFAULT 0,
+CREATE TABLE IF NOT EXISTS answers (
+  attempt_id  uuid NOT NULL REFERENCES attempts(id) ON DELETE CASCADE,
+  task_id     uuid NOT NULL REFERENCES test_tasks(id) ON DELETE CASCADE,
+  answer      jsonb NOT NULL,
+  matches_key boolean NOT NULL,
+  time_ms     integer NOT NULL,
+  changes     integer NOT NULL DEFAULT 0,
+  flags       jsonb NOT NULL DEFAULT '[]',
   PRIMARY KEY (attempt_id, task_id)
 );
 
-CREATE TABLE invitations (
-  attempt_id TEXT PRIMARY KEY REFERENCES attempts(id) ON DELETE CASCADE,
-  code       TEXT NOT NULL,
-  sent_at    INTEGER NOT NULL
+CREATE TABLE IF NOT EXISTS invitations (
+  attempt_id uuid PRIMARY KEY REFERENCES attempts(id) ON DELETE CASCADE,
+  code       text NOT NULL,
+  sent_at    timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE TABLE recruiter_notes (
-  attempt_id TEXT NOT NULL REFERENCES attempts(id) ON DELETE CASCADE,
-  task_id    INTEGER NOT NULL REFERENCES test_tasks(id) ON DELETE CASCADE,
-  asked      INTEGER NOT NULL DEFAULT 0,
-  note       TEXT NOT NULL DEFAULT '',
+CREATE TABLE IF NOT EXISTS recruiter_notes (
+  attempt_id uuid NOT NULL REFERENCES attempts(id) ON DELETE CASCADE,
+  task_id    uuid NOT NULL REFERENCES test_tasks(id) ON DELETE CASCADE,
+  asked      boolean NOT NULL DEFAULT false,
+  note       text NOT NULL DEFAULT '',
   PRIMARY KEY (attempt_id, task_id)
 );
 
-CREATE INDEX test_tasks_by_test ON test_tasks(test_id, position);
-CREATE INDEX attempts_by_test ON attempts(test_id, started_at);
-CREATE INDEX qr_tokens_by_test ON qr_tokens(test_id);
+CREATE INDEX IF NOT EXISTS test_tasks_by_test ON test_tasks (test_id, position);
+CREATE INDEX IF NOT EXISTS attempts_by_test ON attempts (test_id, started_at);
+CREATE INDEX IF NOT EXISTS qr_tokens_by_test ON qr_tokens (test_id);
+
+-- Supabase also serves the public schema over its REST API. RLS without
+-- policies closes that door; this app connects as the table owner, which RLS
+-- does not restrict.
+ALTER TABLE companies       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE tests           ENABLE ROW LEVEL SECURITY;
+ALTER TABLE test_tasks      ENABLE ROW LEVEL SECURITY;
+ALTER TABLE attempts        ENABLE ROW LEVEL SECURITY;
+ALTER TABLE qr_tokens       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE answers         ENABLE ROW LEVEL SECURITY;
+ALTER TABLE invitations     ENABLE ROW LEVEL SECURITY;
+ALTER TABLE recruiter_notes ENABLE ROW LEVEL SECURITY;
 `;
 
-// One connection per server process. Kept on globalThis because Next.js can
-// evaluate this module more than once (dev reloads, separate server layers).
-const globalForDb = globalThis as unknown as { __skillscanDb?: Db };
+// One small pool per server process, kept on globalThis so dev reloads reuse it.
+const globalForDb = globalThis as unknown as { __skillscanSql?: postgres.Sql };
 
-export function getDb(): Db {
-  globalForDb.__skillscanDb ??= open();
-  return globalForDb.__skillscanDb;
+export function db(): postgres.Sql {
+  if (!globalForDb.__skillscanSql) {
+    const url = process.env.DATABASE_URL;
+    if (!url) throw new Error("DATABASE_URL is not set: copy .env.example to .env.local and fill it in.");
+    globalForDb.__skillscanSql = postgres(url, {
+      prepare: false, // the transaction pooler cannot keep prepared statements
+      max: 5,
+      idle_timeout: 20,
+      connect_timeout: 10,
+      ssl: "require",
+    });
+  }
+  return globalForDb.__skillscanSql;
 }
 
-function open(): Db {
-  const file = process.env.DATABASE_PATH ?? path.join(process.cwd(), "data", "skillscan.db");
-  fs.mkdirSync(path.dirname(file), { recursive: true });
-  const db = new Database(file, { timeout: 5000 });
-  db.pragma("journal_mode = WAL");
-  db.pragma("foreign_keys = ON");
-  // IMMEDIATE takes the write lock up front, so two processes booting at once
-  // cannot both see an empty database and seed it twice.
-  db.transaction(() => {
-    if (db.pragma("user_version", { simple: true }) !== SCHEMA_VERSION) {
-      for (const table of TABLES) db.exec(`DROP TABLE IF EXISTS ${table}`);
-      db.exec(SCHEMA);
-      db.pragma(`user_version = ${SCHEMA_VERSION}`);
-    }
-    const { n } = db.prepare("SELECT COUNT(*) AS n FROM companies").get() as { n: number };
-    if (n === 0) seed(db);
-  }).immediate();
-  return db;
+export type Company = {
+  id: string;
+  slug: string;
+  name: string;
+  sector: string;
+  booth: string;
+  color: string;
+};
+
+export async function listCompanies() {
+  return db()<(Company & { test_title: string | null })[]>`
+    SELECT c.*, t.title AS test_title
+    FROM companies c
+    LEFT JOIN tests t ON t.company_id = c.id
+    ORDER BY c.booth`;
 }
