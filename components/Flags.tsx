@@ -1,45 +1,33 @@
-import { ChevronDown, Flag } from "lucide-react";
-import { FLAG_INFO, OWN_PACE_NOTE, type FlagCode } from "@/lib/flags";
+import { Flag } from "lucide-react";
+import { FLAG_INFO, type FlagCode } from "@/lib/flags";
 
-// One flag as a small collapsible row: the rule, what it does NOT mean, what to ask.
-export function FlagRow({ code }: { code: FlagCode }) {
-  const info = FLAG_INFO[code];
-  return (
-    <details className="group rounded-tile border border-warn/30 bg-warn/10 text-sm">
-      <summary className="tap flex min-h-10 cursor-pointer list-none items-center gap-2 px-3 font-semibold text-warn">
-        <Flag className="size-3.5 shrink-0" strokeWidth={2.5} aria-hidden />
-        {info.label}
-        <ChevronDown className="ml-auto size-4 shrink-0 transition-transform duration-150 group-open:rotate-180" aria-hidden />
-      </summary>
-      <div className="flex flex-col gap-2 px-3 pb-3 text-fg/85">
-        <p><span className="text-muted">Rule:</span> {info.rule}</p>
-        <p className="rounded-tile bg-bg/70 p-2.5">
-          <span className="font-semibold text-fg">What this does NOT mean:</span> {info.notMeaning.replace(/^It does NOT mean /, "")}
-        </p>
-        <p><span className="text-muted">Ask:</span> {info.ask}</p>
+// Per task, always open: plain flag labels in one row, then for each flag what
+// it does NOT mean and what to ask. Flags are three plain rules, never a verdict.
+export function FlagRow({ flags, changes }: { flags: FlagCode[]; changes: number }) {
+  if (!flags.length) {
+    return (
+      <div className="flex flex-wrap gap-1.5">
+        <span className="inline-flex h-6 items-center rounded-pill bg-fg/10 px-2.5 text-xs font-semibold text-muted">No flags</span>
       </div>
-    </details>
-  );
-}
-
-export function FlagList({ flags }: { flags: FlagCode[] }) {
-  if (!flags.length) return null;
+    );
+  }
   return (
     <div className="flex flex-col gap-2">
-      {flags.map((f) => <FlagRow key={f} code={f} />)}
-    </div>
-  );
-}
-
-// Shown once per candidate: how flags work, in plain words.
-export function FlagLegend({ ownPace }: { ownPace: boolean }) {
-  return (
-    <div className="rounded-card border border-border bg-card p-3.5 text-[13px] text-muted">
-      <p>
-        <span className="font-semibold text-fg">Flags</span> are three plain rules (very fast, much longer, changed 3+
-        times), not AI. They never lower anything and nobody is sorted by them. Use them only to decide what to ask.
-      </p>
-      {ownPace && <p className="mt-2 rounded-tile bg-ok/10 p-2.5 font-medium text-ok">{OWN_PACE_NOTE}</p>}
+      <div className="flex flex-wrap gap-1.5">
+        {flags.map((f) => (
+          <span key={f} className="inline-flex h-6 items-center gap-1 rounded-pill bg-warn/15 px-2.5 text-xs font-semibold text-warn">
+            <Flag className="size-3" strokeWidth={2.5} aria-hidden />
+            {f === "changes" ? `Changed ${changes}×` : FLAG_INFO[f].label}
+          </span>
+        ))}
+      </div>
+      <ul className="flex flex-col gap-1 text-[13px] text-muted">
+        {flags.map((f) => (
+          <li key={f}>
+            <span className="font-semibold text-fg">{FLAG_INFO[f].label}:</span> {FLAG_INFO[f].notMeaning} {FLAG_INFO[f].ask}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

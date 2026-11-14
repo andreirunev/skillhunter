@@ -38,7 +38,7 @@ export function TaskNotes({ attemptId, taskId, questions, initialAsked, initialN
           </li>
         ))}
       </ul>
-      <label className="flex min-h-11 cursor-pointer items-center gap-3 text-sm font-semibold">
+      <label className="flex min-h-9 cursor-pointer items-center gap-2 self-start text-[13px] font-medium text-muted">
         <input
           type="checkbox"
           checked={asked}
@@ -46,7 +46,7 @@ export function TaskNotes({ attemptId, taskId, questions, initialAsked, initialN
             setAsked(e.target.checked);
             save(e.target.checked, note);
           }}
-          className="size-5 accent-accent"
+          className="size-4 accent-accent"
         />
         Asked and discussed
       </label>
