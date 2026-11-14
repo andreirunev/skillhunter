@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { db } from "./db.ts";
 import { isUuid } from "./data.ts";
 import { makeInviteCode } from "./codes.ts";
@@ -14,7 +15,8 @@ export const isStatus = (x: unknown): x is Status => typeof x === "string" && (S
 
 export type Company = { id: string; slug: string; name: string; sector: string; booth: string; color: string; test_id: string; test_title: string; task_count: number; expected_sec: number };
 
-export async function getCompany(slug: string): Promise<Company | null> {
+// Cached per request: the recruiter layout and its page both read it.
+export const getCompany = cache(async (slug: string): Promise<Company | null> => {
   const [row] = await db()<Company[]>`
     SELECT c.id, c.slug, c.name, c.sector, c.booth, c.color, t.id AS test_id, t.title AS test_title,
       (SELECT count(*)::int FROM test_tasks WHERE test_id = t.id) AS task_count,
@@ -22,7 +24,7 @@ export async function getCompany(slug: string): Promise<Company | null> {
     FROM companies c JOIN tests t ON t.company_id = c.id
     WHERE c.slug = ${slug} LIMIT 1`;
   return row ?? null;
-}
+});
 
 export type CandidateRow = {
   id: string;
@@ -120,12 +122,22 @@ export async function saveNote(attemptId: string, taskId: string, asked: boolean
   return rows.length > 0;
 }
 
-// Printed booth codes that can still start a test, newest batch first.
-export async function listUnusedCodes(testId: string): Promise<string[]> {
-  const rows = await db()<{ token: string }[]>`
-    SELECT token FROM qr_tokens
-    WHERE test_id = ${testId}::uuid AND status = 'new' AND expires_at > now()
-    ORDER BY expires_at DESC, token
-    LIMIT 200`;
-  return rows.map((r) => r.token);
+export type BoothCode = { code: string; taken: boolean };
+
+// Booth codes for the codes screen: free ones first (newest batch first), then
+// taken ones. "Taken" is all it says: never who used a code or when.
+export async function listCodes(testId: string): Promise<{ free: number; taken: number; codes: BoothCode[] }> {
+  const sql = db();
+  const [[counts], rows] = await Promise.all([
+    sql<{ free: number; taken: number }[]>`
+      SELECT count(*) FILTER (WHERE status = 'new' AND expires_at > now())::int AS free,
+        count(*) FILTER (WHERE status = 'activated')::int AS taken
+      FROM qr_tokens WHERE test_id = ${testId}::uuid`,
+    sql<BoothCode[]>`
+      SELECT token AS code, status = 'activated' AS taken FROM qr_tokens
+      WHERE test_id = ${testId}::uuid AND (status = 'activated' OR expires_at > now())
+      ORDER BY status = 'activated', expires_at DESC, token
+      LIMIT 300`,
+  ]);
+  return { free: counts.free, taken: counts.taken, codes: [...rows] };
 }

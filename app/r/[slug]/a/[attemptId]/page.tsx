@@ -4,7 +4,6 @@ import { AvatarBadge } from "@/components/Avatar";
 import { ActionBar } from "@/components/ActionBar";
 import { FlagLegend, FlagList } from "@/components/Flags";
 import { TaskNotes } from "@/components/TaskNotes";
-import { TabBar } from "@/components/RecruiterHeader";
 import { getCandidate, getCompany } from "@/lib/recruiter";
 import { describeAnswer, GENERIC_FOLLOW_UPS, SKILLS, TYPE_LABELS } from "@/lib/tasks";
 import { formatClock, formatDuration, LANG_SHORT, STATUS_LABELS } from "@/lib/format";
@@ -88,7 +87,6 @@ export default async function CandidatePage(props: PageProps<"/r/[slug]/a/[attem
       </main>
 
       <ActionBar key={attempt.id} attemptId={attempt.id} status={attempt.status} inviteCode={attempt.invite_code} />
-      <TabBar slug={slug} active="candidates" />
     </div>
   );
 }
