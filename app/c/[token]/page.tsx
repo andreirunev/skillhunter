@@ -1,5 +1,8 @@
+import { redirect } from "next/navigation";
 import { getTokenView } from "@/lib/data";
+import { deviceHash } from "@/lib/device";
 import { makeAvatar } from "@/lib/avatar";
+import { OtherDevice } from "@/components/OtherDevice";
 import { Activate } from "./Activate";
 
 export const dynamic = "force-dynamic";
@@ -14,17 +17,25 @@ function seededRand(text: string) {
   };
 }
 
+// Setup screen for the attempt this device started at /join. A code that was
+// never entered goes to /join first (entering it is what burns it).
 export default async function ActivatePage(props: PageProps<"/c/[token]">) {
   const { token } = await props.params;
-  const view = await getTokenView(token);
-  const state = !view ? "invalid" : view.status === "activated" ? "used" : view.expired ? "expired" : "ready";
+  const view = await getTokenView(token, await deviceHash());
+  if (view?.status === "new" && !view.expired) redirect(`/join?code=${encodeURIComponent(token)}`);
+  if (view?.status === "activated" && !view.owned) return <OtherDevice />;
+  if (view?.owned && view.started) redirect(`/t/${view.attempt_id}`);
 
+  const ready = Boolean(view?.owned);
+  const avatar = ready && view?.avatar_name && view.avatar_emoji && view.avatar_color
+    ? { name: view.avatar_name, emoji: view.avatar_emoji, color: view.avatar_color }
+    : makeAvatar(seededRand(token));
   return (
     <Activate
       token={token}
-      state={state}
-      initialAvatar={makeAvatar(seededRand(token))}
-      company={view && { name: view.company_name, booth: view.booth, color: view.color, testTitle: view.test_title }}
+      state={!view ? "invalid" : ready ? "ready" : "expired"}
+      initialAvatar={avatar}
+      company={ready && view ? { name: view.company_name, booth: view.booth, color: view.color, testTitle: view.test_title } : null}
       taskCount={view?.task_count ?? 0}
       minutes={Math.max(1, Math.round((view?.expected_sec ?? 0) / 60))}
     />

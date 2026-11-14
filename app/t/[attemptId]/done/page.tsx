@@ -1,12 +1,15 @@
 import { notFound } from "next/navigation";
 import QRCode from "qrcode";
 import { getInvitationView } from "@/lib/data";
+import { OtherDevice } from "@/components/OtherDevice";
+import { isMyAttempt } from "@/lib/device";
 import { Waiting } from "./Waiting";
 
 export const dynamic = "force-dynamic";
 
 export default async function DonePage(props: PageProps<"/t/[attemptId]/done">) {
   const { attemptId } = await props.params;
+  if (!(await isMyAttempt(attemptId))) return <OtherDevice />;
   const view = await getInvitationView(attemptId);
   if (!view) notFound();
   const qrSvg = view.code

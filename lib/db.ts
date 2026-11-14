@@ -52,6 +52,10 @@ CREATE TABLE IF NOT EXISTS attempts (
 ALTER TABLE attempts DROP CONSTRAINT IF EXISTS attempts_lang_check;
 ALTER TABLE attempts ADD CONSTRAINT attempts_lang_check CHECK (lang IN ('en', 'fi', 'sv'));
 
+-- Device binding: SHA-256 of the candidate's random device cookie. No device
+-- info, no IP. NULL for seeded attempts (no candidate device can open them).
+ALTER TABLE attempts ADD COLUMN IF NOT EXISTS owner_hash text;
+
 CREATE TABLE IF NOT EXISTS qr_tokens (
   token      text PRIMARY KEY,
   test_id    uuid NOT NULL REFERENCES tests(id) ON DELETE CASCADE,

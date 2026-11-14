@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { db } from "./db.ts";
 import { isCodeShape, makeToken } from "./codes.ts";
+import { makeAvatar } from "./avatar.ts";
 import { computeFlags, type FlagCode } from "./flags.ts";
 import { isAnswered, matchesKey, type Answer, type AnswerKey, type TaskPayload, type TaskType } from "./tasks.ts";
 import type { Lang } from "./i18n.ts";
@@ -16,6 +17,11 @@ export type TokenView = {
   status: "new" | "activated";
   expired: boolean;
   attempt_id: string | null;
+  owned: boolean; // the attempt belongs to the device asking
+  started: boolean; // answers saved or finished
+  avatar_name: string | null;
+  avatar_emoji: string | null;
+  avatar_color: string | null;
   company_name: string;
   booth: string;
   color: string;
@@ -24,48 +30,72 @@ export type TokenView = {
   expected_sec: number;
 };
 
-export async function getTokenView(token: string): Promise<TokenView | null> {
+export async function getTokenView(token: string, ownerHash: string | null): Promise<TokenView | null> {
   const [row] = await db()<TokenView[]>`
     SELECT q.token, q.status, q.expires_at < now() AS expired, q.attempt_id,
+      coalesce(a.owner_hash = ${ownerHash ?? ""}, false) AS owned,
+      (a.finished_at IS NOT NULL OR EXISTS (SELECT 1 FROM answers WHERE attempt_id = a.id)) AS started,
+      a.avatar_name, a.avatar_emoji, a.avatar_color,
       c.name AS company_name, c.booth, c.color, t.title AS test_title,
       (SELECT count(*)::int FROM test_tasks WHERE test_id = t.id) AS task_count,
       (SELECT coalesce(sum(expected_sec), 0)::int FROM test_tasks WHERE test_id = t.id) AS expected_sec
     FROM qr_tokens q
     JOIN tests t ON t.id = q.test_id
     JOIN companies c ON c.id = t.company_id
+    LEFT JOIN attempts a ON a.id = q.attempt_id
     WHERE q.token = ${token}`;
   return row ?? null;
 }
 
-// Single-use: only a new, unexpired token can start an attempt.
-export async function activateToken(
-  token: string,
-  input: { name: string; emoji: string; color: string; lang: Lang; ownPace: boolean },
-): Promise<string | null> {
+// Burn on entry: the first valid entry of a code creates the attempt and binds
+// it to the entering device. One atomic statement, so a code can never start
+// a second attempt. Avatar and language are chosen on the next screen.
+export async function enterCode(code: string, ownerHash: string): Promise<string | null> {
   const id = randomUUID();
+  const avatar = makeAvatar();
   const [row] = await db()<{ id: string }[]>`
     WITH tok AS (
       UPDATE qr_tokens SET status = 'activated', attempt_id = ${id}::uuid
-      WHERE token = ${token} AND status = 'new' AND expires_at > now()
+      WHERE token = ${code} AND status = 'new' AND expires_at > now()
       RETURNING test_id
     )
-    INSERT INTO attempts (id, test_id, avatar_name, avatar_emoji, avatar_color, lang, own_pace)
-    SELECT ${id}::uuid, test_id, ${input.name}, ${input.emoji}, ${input.color}, ${input.lang}, ${input.ownPace} FROM tok
+    INSERT INTO attempts (id, test_id, avatar_name, avatar_emoji, avatar_color, owner_hash)
+    SELECT ${id}::uuid, test_id, ${avatar.name}, ${avatar.emoji}, ${avatar.color}, ${ownerHash} FROM tok
     RETURNING id`;
+  return row?.id ?? null;
+}
+
+export async function ownsAttempt(attemptId: string, ownerHash: string | null): Promise<boolean> {
+  if (!ownerHash || !isUuid(attemptId)) return false;
+  const rows = await db()`SELECT 1 FROM attempts WHERE id = ${attemptId}::uuid AND owner_hash = ${ownerHash}`;
+  return rows.length > 0;
+}
+
+// Avatar, language and own pace, set by the owning device before the first task.
+export async function setupAttempt(
+  token: string,
+  ownerHash: string,
+  input: { name: string; emoji: string; color: string; lang: Lang; ownPace: boolean },
+): Promise<string | null> {
+  const [row] = await db()<{ id: string }[]>`
+    UPDATE attempts a SET avatar_name = ${input.name}, avatar_emoji = ${input.emoji},
+      avatar_color = ${input.color}, lang = ${input.lang}, own_pace = ${input.ownPace}
+    FROM qr_tokens q
+    WHERE q.token = ${token} AND a.id = q.attempt_id AND a.owner_hash = ${ownerHash} AND a.finished_at IS NULL
+    RETURNING a.id`;
   return row?.id ?? null;
 }
 
 // Fresh single-use tokens for a company's test: one per demo QR link (1 day),
 // or a batch of printed booth codes. Returns the tokens actually created.
 export async function createTokens(slug: string, count: number, days: number): Promise<string[]> {
-  const sql = db();
   const tokens = Array.from({ length: count }, makeToken);
-  const rows = await sql<{ token: string }[]>`
+  const rows = await db()<{ token: string }[]>`
     WITH t AS (
       SELECT t.id FROM tests t JOIN companies c ON c.id = t.company_id WHERE c.slug = ${slug} LIMIT 1
     )
     INSERT INTO qr_tokens (token, test_id, expires_at)
-    SELECT tok, t.id, now() + ${days}::int * interval '1 day' FROM t, unnest(${sql.array(tokens)}::text[]) AS tok
+    SELECT tok, t.id, now() + ${days}::int * interval '1 day' FROM t, unnest(${tokens}::text[]) AS tok
     ON CONFLICT (token) DO NOTHING
     RETURNING token`;
   return rows.map((r) => r.token);
@@ -76,12 +106,16 @@ export async function createToken(slug: string): Promise<string | null> {
   return token ?? null;
 }
 
-// For /join: only says whether a typed code can start a test. Never which company.
-export async function checkCode(code: string): Promise<"ready" | "used" | "missing"> {
+// For /join: only says whether a typed code can start a test ("mine" = used,
+// by this device). Never which company or candidate.
+export async function checkCode(code: string, ownerHash: string | null): Promise<"ready" | "used" | "mine" | "missing"> {
   if (!isCodeShape(code)) return "missing";
-  const [row] = await db()<{ ready: boolean }[]>`
-    SELECT status = 'new' AND expires_at > now() AS ready FROM qr_tokens WHERE token = ${code}`;
-  return !row ? "missing" : row.ready ? "ready" : "used";
+  const [row] = await db()<{ ready: boolean; mine: boolean }[]>`
+    SELECT q.status = 'new' AND q.expires_at > now() AS ready,
+      coalesce(a.owner_hash = ${ownerHash ?? ""}, false) AS mine
+    FROM qr_tokens q LEFT JOIN attempts a ON a.id = q.attempt_id
+    WHERE q.token = ${code}`;
+  return !row ? "missing" : row.ready ? "ready" : row.mine ? "mine" : "used";
 }
 
 export type PlayerAttempt = {

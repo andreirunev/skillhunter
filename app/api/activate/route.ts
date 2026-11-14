@@ -1,10 +1,11 @@
-import { activateToken } from "@/lib/data";
+import { setupAttempt } from "@/lib/data";
+import { deviceHash } from "@/lib/device";
 import { isLang } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
 
-// Starts an attempt from a single-use QR token. Stores only the anonymous
-// avatar, the UI language and the own-pace choice.
+// Avatar, UI language and own pace for the attempt this device started at
+// /join. Only the owning device can change it, and only before it finishes.
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
   const { token, name, emoji, color, lang, ownPace } = body ?? {};
@@ -16,7 +17,8 @@ export async function POST(request: Request) {
     isLang(lang) && typeof ownPace === "boolean";
   if (!valid) return Response.json({ error: "invalid" }, { status: 400 });
 
-  const attemptId = await activateToken(token, { name, emoji, color, lang, ownPace });
-  if (!attemptId) return Response.json({ error: "used_or_expired" }, { status: 409 });
+  const owner = await deviceHash();
+  const attemptId = owner ? await setupAttempt(token, owner, { name, emoji, color, lang, ownPace }) : null;
+  if (!attemptId) return Response.json({ error: "other_device" }, { status: 403 });
   return Response.json({ attemptId });
 }
