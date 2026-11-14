@@ -23,6 +23,10 @@ export type LiveDraft = {
   duties: { title: string; libraryId: string; followups: string[]; good: string[]; key: SimKey }[];
 };
 
+// A new draft asked for on the Contests tab: from a role example, or from
+// scratch (template null).
+export type DraftStart = { template: RoleTemplate | null };
+
 // One duty in the draft: its title, the library task it maps to, and the
 // three things a company may change on that task.
 type Row = { uid: string; title: string; taskId: string | null; followups: string[]; good: string[]; key: SimKey };
@@ -43,23 +47,37 @@ const uid = () => `row${++seq}`;
 const rowFrom = (title: string, task: LibraryTask): Row =>
   ({ uid: uid(), title, taskId: task.id, followups: [...task.followups], good: [...task.good_looks_like], key: task.key });
 
-// Test builder on one screen: test name, the task list, Add task, and Save
-// in a bar fixed at the bottom. Opens on the live version when there is one.
-export function Builder({ slug, companyName, lang, templates, library, live }: {
+// Contest builder on one screen: name, the task list, Add task, and Save in a
+// bar fixed at the bottom. Opens on the live version when there is one. A new
+// draft (`start`) is local until saved; with a live contest the recruiter
+// confirms first. Saving publishes a new version, so the live one and the
+// attempts made on it never change.
+export function Builder({ slug, companyName, lang, templates, library, live, start }: {
   slug: string;
   companyName: string;
   lang: Lang;
   templates: RoleTemplate[];
   library: LibraryTask[];
   live: LiveDraft | null;
+  start: DraftStart | null;
 }) {
   const tr = useCallback((key: BuilderKey, vars?: Record<string, string | number>) => bt(lang, key, vars), [lang]);
   const byId = useMemo(() => new Map(library.map((t) => [t.id, t])), [library]);
 
-  const [roleSlug, setRoleSlug] = useState<string | null>(live?.roleSlug ?? null);
-  const [rows, setRows] = useState<Row[]>(() => (live?.duties ?? []).map((d) =>
-    ({ uid: uid(), title: d.title, taskId: byId.has(d.libraryId) ? d.libraryId : null, followups: d.followups, good: d.good, key: d.key })));
-  const [title, setTitle] = useState(live?.title ?? "");
+  const templateRows = (t: RoleTemplate) => t.duties.flatMap((d) => (byId.get(d.task_id) ? [rowFrom(d.title, byId.get(d.task_id)!)] : []));
+  const newDraft = (t: RoleTemplate | null) => ({ roleSlug: t?.slug ?? null, rows: t ? templateRows(t) : [], title: t ? `${t.name}: job simulation` : "" });
+
+  const [initial] = useState(() => (start && !live ? newDraft(start.template) : {
+    roleSlug: live?.roleSlug ?? null,
+    rows: (live?.duties ?? []).map((d): Row =>
+      ({ uid: uid(), title: d.title, taskId: byId.has(d.libraryId) ? d.libraryId : null, followups: d.followups, good: d.good, key: d.key })),
+    title: live?.title ?? "",
+  }));
+  const [roleSlug, setRoleSlug] = useState<string | null>(initial.roleSlug);
+  const [rows, setRows] = useState<Row[]>(initial.rows);
+  const [title, setTitle] = useState(initial.title);
+  const [confirmStart, setConfirmStart] = useState(() => Boolean(start && live));
+  const keepCurrent = useCallback(() => setConfirmStart(false), []);
   const [sheet, setSheet] = useState<SheetState>(null);
   const [error, setError] = useState<string | null>(null);
   const [published, setPublished] = useState<number | null>(null);
@@ -104,8 +122,16 @@ export function Builder({ slug, companyName, lang, templates, library, live }: {
   }
   function startFrom(t: RoleTemplate) {
     setRoleSlug(t.slug);
-    edit(() => t.duties.flatMap((d) => (byId.get(d.task_id) ? [rowFrom(d.title, byId.get(d.task_id)!)] : [])));
+    edit(() => templateRows(t));
     if (!title.trim()) setTitle(`${t.name}: job simulation`);
+  }
+  // Replaces only the local draft; nothing is saved until Save.
+  function startNewDraft() {
+    const next = newDraft(start?.template ?? null);
+    setConfirmStart(false);
+    setRoleSlug(next.roleSlug);
+    setTitle(next.title);
+    edit(() => next.rows);
   }
 
   function publish() {
@@ -194,6 +220,16 @@ export function Builder({ slug, companyName, lang, templates, library, live }: {
           </button>
         </div>
       </div>
+
+      {confirmStart && (
+        <Sheet title={tr("replaceTitle")} closeLabel={tr("close")} onClose={keepCurrent}>
+          <div className="flex flex-col gap-3">
+            <p className="text-sm">{tr("replaceBody")}</p>
+            <button type="button" onClick={startNewDraft} className="ui-btn ui-btn-primary min-h-12 text-base">{tr("replaceYes")}</button>
+            <button type="button" onClick={keepCurrent} className="ui-btn ui-btn-secondary min-h-12 text-base">{tr("replaceNo")}</button>
+          </div>
+        </Sheet>
+      )}
 
       {sheet && (sheet.kind !== "edit" || editRow) && (
         <Sheet title={sheetTitle} closeLabel={tr("close")} onClose={closeSheet}>

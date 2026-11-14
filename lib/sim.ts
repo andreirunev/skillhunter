@@ -10,12 +10,12 @@ export type Format = (typeof FORMATS)[number];
 export const isFormat = (x: unknown): x is Format => typeof x === "string" && (FORMATS as readonly string[]).includes(x);
 
 export const FORMAT_LABELS: Record<Format, string> = {
-  triage: "Prioritise",
+  triage: "Triage",
   spot_error: "Spot the error",
   next_step: "Next step",
-  apply_rule: "Apply a rule",
+  apply_rule: "Apply the rule",
   read_decide: "Read and decide",
-  handover: "Handover",
+  handover: "Handover note",
   quick_logic: "Quick logic",
 };
 

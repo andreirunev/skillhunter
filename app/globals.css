@@ -144,6 +144,11 @@ body:has([data-landing]) {
   --bad: #dc2626;
   --info: #2563eb;
   --track: #e4e4e7;
+  /* Destructive exits ("Leave recruiter view"): deep red, both themes. */
+  --danger-bg: #fbeaea;
+  --danger-text: #8f1d1d;
+  --danger-border: #ecbcbc;
+  --danger-press: #f5d6d6;
   /* Bottom tab bar: h-14 + 1px border + iPhone home indicator. Desktop has a
      left rail instead, so fixed bars sit at the bottom and right of it. */
   --tabbar: calc(3.5rem + 1px + env(safe-area-inset-bottom));
@@ -166,6 +171,10 @@ body:has([data-landing]) {
   --bad: #ef4444;
   --info: #60a5fa;
   --track: #1f1f22;
+  --danger-bg: #4a1515;
+  --danger-text: #fca5a5;
+  --danger-border: #6e2323;
+  --danger-press: #5a1a1a;
   color-scheme: dark;
 }
 @media (min-width: 1024px) {
@@ -233,6 +242,15 @@ a[role="button"],
   }
   .ui-btn-secondary {
     @apply border-border bg-card text-fg active:bg-track;
+  }
+  .ui-btn-danger {
+    border-color: var(--danger-border);
+    border-radius: 2px;
+    background: var(--danger-bg);
+    color: var(--danger-text);
+  }
+  .ui-btn-danger:active {
+    background: var(--danger-press);
   }
 
   /* Press feedback on anything tappable. */

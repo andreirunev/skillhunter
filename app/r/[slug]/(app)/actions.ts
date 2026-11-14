@@ -40,7 +40,7 @@ export async function saveTicketTemplate(_prev: TicketState, formData: FormData)
   return { error: "", saved: Date.now() };
 }
 
-// "Reset demo data" (About tab): same as `npm run db:reseed`. Refused unless
+// "Reset demo data" (Contests tab): same as `npm run db:reseed`. Refused unless
 // DEMO_MODE is set, whatever the client sends.
 export async function resetDemo(): Promise<boolean> {
   if (!isDemoMode()) return false;

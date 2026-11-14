@@ -48,7 +48,7 @@ export default async function CandidatesPage(props: PageProps<"/r/[slug]">) {
     <div className="flex flex-col gap-4 pt-2">
       <AutoRefresh seconds={10} />
       <ScreenTitle title="Candidates"
-        help={{ href: `/r/${slug}/about`, label: "How it works", icon: <CircleHelp className="size-4" aria-hidden /> }} />
+        help={{ href: `/r/${slug}/contests#how-to`, label: "How it works", icon: <CircleHelp className="size-4" aria-hidden /> }} />
       <FindByCode slug={slug} autoFocus={find === "1"} />
       <CandidatesView slug={slug} items={items} />
       <FabButton href={`/r/${slug}/codes?print=1`} label="Print booth codes" />
