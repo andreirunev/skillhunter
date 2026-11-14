@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { Check, Flag, TriangleAlert } from "lucide-react";
 import { ActionBar } from "@/components/ActionBar";
-import { CandidateStatusProvider, DetailTopBar } from "@/components/CandidateStatus";
+import { CandidateCode, CandidateStatusProvider, DetailTopBar } from "@/components/CandidateStatus";
 import { FlagRow } from "@/components/Flags";
 import { TaskNotes } from "@/components/TaskNotes";
 import { AvatarTile } from "@/components/ui/ListRow";
@@ -37,6 +37,7 @@ export default async function CandidatePage(props: PageProps<"/r/[slug]/a/[attem
               {LANG_SHORT[attempt.lang] ?? attempt.lang} · limit {TIME_LIMIT_MINUTES} min
             </span>
           </div>
+          <CandidateCode />
           <dl className="grid grid-cols-3 gap-2">
             <Fact label={attempt.finished_at ? "Finished" : "In progress"}
               value={attempt.finished_at ? formatClock(attempt.finished_at) : `${answered}/${tasks.length}`} />

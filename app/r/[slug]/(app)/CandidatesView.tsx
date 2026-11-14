@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { CircleDot, Handshake, Send, ThumbsUp, Ticket } from "lucide-react";
+import { CircleDot, Handshake, Send, ThumbsUp } from "lucide-react";
 import { FilterPills } from "@/components/ui/FilterPills";
+import { BigCode } from "@/components/ui/BigCode";
 import { AvatarTile, ListRow } from "@/components/ui/ListRow";
 import { SectionLabel } from "@/components/ui/ScreenTitle";
 import { SearchInput } from "@/components/ui/SearchInput";
@@ -102,9 +103,7 @@ function Section({ label, slug, items }: { label: string; slug: string; items: C
             <li key={c.id}>
               <ListRow href={`/r/${slug}/a/${c.id}`} title={c.name} sub={c.sub}
                 leading={<AvatarTile emoji={c.emoji} color={c.color} />}
-                meta={c.inviteCode && (
-                  <span className="inline-flex items-center gap-1"><Ticket className="size-3.5" aria-hidden />{c.inviteCode}</span>
-                )}
+                meta={c.inviteCode && <BigCode code={c.inviteCode} />}
                 trailing={<StatusPill status={c.status} />} />
             </li>
           ))}

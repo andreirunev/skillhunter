@@ -1,4 +1,3 @@
-import QRCode from "qrcode";
 import { getInvitationView } from "@/lib/data";
 import { isMyAttempt } from "@/lib/device";
 
@@ -12,6 +11,5 @@ export async function GET(_request: Request, ctx: RouteContext<"/api/attempts/[i
   const view = await getInvitationView(id);
   if (!view) return Response.json({ error: "not_found" }, { status: 404 });
   if (!view.code) return Response.json({ invited: false }, { headers: { "Cache-Control": "no-store" } });
-  const qrSvg = await QRCode.toString(`SKILLSCAN ${view.code}`, { type: "svg", margin: 1, color: { dark: "#0f172a", light: "#ffffff" } });
-  return Response.json({ invited: true, code: view.code, booth: view.booth, qrSvg }, { headers: { "Cache-Control": "no-store" } });
+  return Response.json({ invited: true, code: view.code, booth: view.booth }, { headers: { "Cache-Control": "no-store" } });
 }

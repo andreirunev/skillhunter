@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { createContext, useContext, useState, type ReactNode } from "react";
 import { ChevronLeft } from "lucide-react";
+import { BigCode } from "@/components/ui/BigCode";
 import { StatusPill } from "@/components/ui/StatusPill";
 import type { Status } from "@/lib/recruiter";
 
@@ -28,6 +29,19 @@ export function useCandidateStatus() {
   const value = useContext(Ctx);
   if (!value) throw new Error("useCandidateStatus needs CandidateStatusProvider");
   return value;
+}
+
+// The booth code once invited, so the recruiter can match it with the
+// candidate's phone. Shows as soon as "Invite" saves.
+export function CandidateCode() {
+  const { code } = useCandidateStatus();
+  if (!code) return null;
+  return (
+    <div className="flex flex-col gap-1.5">
+      <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted">Candidate code</p>
+      <BigCode code={code} />
+    </div>
+  );
 }
 
 // Sticky top bar: Back, name, current label.
