@@ -21,7 +21,12 @@ const GENERAL_MIX = ["gen-pattern", "gen-apples", "gen-tea"];
 const DEMO_CODES = 5;
 
 // Synthetic candidates per company; statuses are pretend recruiter decisions.
-const CANDIDATE_STATUSES = ["new", "invited", "good_fit", "needs_review", "new", "new", "not_now", "new"];
+const CANDIDATE_STATUSES = ["new", "invited", "good_fit", "needs_review", "at_booth", "interview", "not_now", "new"];
+
+// Booth flow stage that goes with a seeded status. The one full-interview
+// candidate per company gets an obviously fake contact (test data).
+const STAGE_FOR: Record<string, string> = { at_booth: "mini_interview", interview: "full_interview" };
+const TEST_CONTACT = { full_name: "Test Candidate", phone: "+358 00 000 0000", email: "test.candidate@example.com" };
 
 // Deterministic PRNG (mulberry32) seeded from the company slug.
 function rng(seedText: string) {
@@ -166,8 +171,10 @@ export async function seed(sql: postgres.Sql, { fresh = false } = {}) {
         started_at: new Date(startedAt),
         finished_at: answeredCount === defs.length ? new Date(startedAt + elapsed) : null,
         status,
+        stage: STAGE_FOR[status] ?? "anonymous",
+        contact: status === "interview" ? sql.json(TEST_CONTACT) : null,
       });
-      if (status === "invited") invitations.push({ attempt_id: id, code: makeInviteCode(), sent_at: new Date(startedAt + elapsed + 120_000) });
+      if (status in STAGE_FOR || status === "invited") invitations.push({ attempt_id: id, code: makeInviteCode(), sent_at: new Date(startedAt + elapsed + 120_000) });
     }
     await sql`INSERT INTO attempts ${sql(attempts)}`;
     await sql`INSERT INTO answers ${sql(answers)}`;

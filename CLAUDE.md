@@ -55,7 +55,8 @@ Templates are grouped by sector and skill type (spatial, logical, procedural, at
 8. Invitation: recruiter taps "Invite to booth"; the candidate's screen (polling) shows an invitation with a code/QR to show at the booth.
 9. Live follow-up at the booth: for each answer the platform suggests questions (company-authored per task plus generic ones). Candidate explains verbally, in writing or by drawing (accessibility).
 10. Human decision: the recruiter decides on an interview. Only a human decides about a person.
-11. Contacts offline: the platform stores no contact data.
+11. Contacts: Contact data is stored only after explicit candidate consent, visible only to the recruiter of that company, deleted with all event data. The candidate types them (all fields optional) only after the recruiter offers a full interview.
+   - Demo limitation: `/r/[slug]` is not login-protected yet, so anyone with the link can open a company's recruiter screens, including identified candidates' contact data. Real deployment needs recruiter login.
 12. Deletion: all event data deleted after the event (a "delete all data" button exists). Demo uses synthetic data only. No IP addresses stored.
 
 ### What the system shows vs. what the human decides
@@ -79,7 +80,7 @@ The QR is booth-bound but the test can physically be done anywhere, and AI could
 - *Bias in IQ-style items?* Real risk. Mitigations: tasks tied to what the role needs, language-light, extra-time option, no overall score, flags never lower anything, human reads answers.
 - *Is this high-risk under the EU AI Act?* Do not claim "compliant". Say: we deliberately make no automated decisions; flags are simple rules without ML; the decision is human; data is minimal and deleted after the event.
 - *Why would companies build tests?* Sector packs make it ~2 minutes; custom tasks are optional.
-- *How is this different from HackerRank/Codility?* Any sector, offline fair with physical QR, company-built or pack tasks, live per-answer follow-up, no contact data on the platform.
+- *How is this different from HackerRank/Codility?* Any sector, offline fair with physical QR, company-built or pack tasks, live per-answer follow-up, contact data only by candidate consent after a full-interview offer.
 
 ### Value
 - **Companies:** forced clarity on needs, less noise at the booth, evidence behind each conversation.
@@ -113,7 +114,7 @@ Ids are `uuid` (`gen_random_uuid()`), except the QR token (`text`). Times are `t
 - `tests(id, company_id, title)`
 - `test_tasks(id, test_id, position, type, payload jsonb, answer_key jsonb, expected_sec, skill, sector, follow_ups jsonb)`
 - `qr_tokens(token, test_id, status new|activated, expires_at, attempt_id)`
-- `attempts(id, test_id, avatar_name, avatar_emoji, avatar_color, lang, own_pace, started_at, finished_at, status new|invited|at_booth|good_fit|needs_review|interview|not_now)`
+- `attempts(id, test_id, avatar_name, avatar_emoji, avatar_color, lang, own_pace, started_at, finished_at, status new|invited|at_booth|good_fit|needs_review|interview|not_now|declined, stage anonymous|mini_interview|full_interview, contact jsonb null)`
 - `answers(attempt_id, task_id, answer jsonb, matches_key bool, time_ms, changes, flags jsonb)`
 - `invitations(attempt_id, code, sent_at)`
 - `recruiter_notes(attempt_id, task_id, asked bool, note)`
@@ -148,7 +149,8 @@ Ids are `uuid` (`gen_random_uuid()`), except the QR token (`text`). Times are `t
 
 - Respect the challenge rules: no automated decisions about people, synthetic data only, minimal personal data.
 - Never add an overall score, ranking, automatic "good fit"/"reject" label, sorting by performance, behavioural surveillance, fraud score, GPS or tracking. Labels about a person are set by the recruiter only.
-- Do not add contact collection to the platform. Do not store IP addresses.
+- Contact data is stored only after explicit candidate consent, visible only to the recruiter of that company, deleted with all event data. Do not collect contacts any other way. Do not store IP addresses.
+- Demo limitation: `/r/[slug]` is not login-protected yet, so anyone with the link can open a company's recruiter screens, including identified candidates' contact data. Real deployment needs recruiter login.
 - Keep the constructor sector-agnostic; examples and demo data cover several trades.
 - Mobile-first always: design and test at ~390 px width first. Keep screens simple and visually clean.
 - Candidate total time must stay under 20 min (target ~10).

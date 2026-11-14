@@ -8,6 +8,7 @@ export const STATUS_TEXT: Record<Status, string> = {
   needs_review: "Review",
   not_now: "Not now",
   interview: "Interview",
+  declined: "Declined",
 };
 
 const COLORS: Record<Status, string> = {
@@ -18,6 +19,7 @@ const COLORS: Record<Status, string> = {
   needs_review: "bg-warn/15 text-warn",
   not_now: "bg-bad/15 text-bad",
   interview: "bg-ok-dark text-white",
+  declined: "bg-fg/10 text-fg/70",
 };
 
 // A label set by the recruiter ("New" until they decide). Never a system verdict.

@@ -4,7 +4,9 @@ import postgres from "postgres";
 // transaction pooler URI (port 6543), from .env.local or the Vercel env vars.
 
 // Ids are uuids, times are timestamptz, structured fields are jsonb.
-// Deliberately absent: names, contacts, IP addresses, location, device data.
+// Deliberately absent: IP addresses, location, device data. Names and contacts
+// exist only in attempts.contact, typed by the candidate after a full-interview
+// invitation (their consent), and are deleted with the event data.
 export const SCHEMA = `
 CREATE TABLE IF NOT EXISTS companies (
   id     uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -48,12 +50,22 @@ CREATE TABLE IF NOT EXISTS attempts (
   started_at   timestamptz NOT NULL DEFAULT now(),
   finished_at  timestamptz,
   status       text NOT NULL DEFAULT 'new' CHECK (status IN
-    ('new', 'invited', 'at_booth', 'good_fit', 'needs_review', 'interview', 'not_now'))
+    ('new', 'invited', 'at_booth', 'good_fit', 'needs_review', 'interview', 'not_now', 'declined'))
 );
 
 -- UI languages: English, Finnish, Swedish. Re-created so re-running updates it.
 ALTER TABLE attempts DROP CONSTRAINT IF EXISTS attempts_lang_check;
 ALTER TABLE attempts ADD CONSTRAINT attempts_lang_check CHECK (lang IN ('en', 'fi', 'sv'));
+
+-- Recruiter statuses (human labels). Re-created so re-running updates it.
+ALTER TABLE attempts DROP CONSTRAINT IF EXISTS attempts_status_check, ADD CONSTRAINT attempts_status_check CHECK (status IN ('new','invited','at_booth','good_fit','needs_review','interview','not_now','declined'));
+
+-- Stage only moves forward: anonymous -> mini_interview (booth code entered)
+-- -> full_interview. Contact is optional, typed by the candidate, and only
+-- allowed once a full interview is offered.
+ALTER TABLE attempts ADD COLUMN IF NOT EXISTS stage text NOT NULL DEFAULT 'anonymous', ADD COLUMN IF NOT EXISTS contact jsonb;
+ALTER TABLE attempts DROP CONSTRAINT IF EXISTS attempts_stage_check, ADD CONSTRAINT attempts_stage_check CHECK (stage IN ('anonymous','mini_interview','full_interview'));
+ALTER TABLE attempts DROP CONSTRAINT IF EXISTS attempts_contact_check, ADD CONSTRAINT attempts_contact_check CHECK (contact IS NULL OR stage = 'full_interview');
 
 -- Device binding: SHA-256 of the candidate's random device cookie. No device
 -- info, no IP. NULL for seeded attempts (no candidate device can open them).

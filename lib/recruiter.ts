@@ -11,7 +11,7 @@ import { closeExpiredForTest, TIME_LIMIT_MINUTES } from "./timing.ts";
 // Recruiter-side data. Demo access is by company slug; a real deployment puts
 // staff login in front of this. Nothing here scores, ranks or sorts by results.
 
-export const STATUSES = ["new", "invited", "at_booth", "good_fit", "needs_review", "interview", "not_now"] as const;
+export const STATUSES = ["new", "invited", "at_booth", "good_fit", "needs_review", "interview", "not_now", "declined"] as const;
 export type Status = (typeof STATUSES)[number];
 export const isStatus = (x: unknown): x is Status => typeof x === "string" && (STATUSES as readonly string[]).includes(x);
 
