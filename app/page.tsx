@@ -1,26 +1,44 @@
-import { listCompanies } from "@/lib/db";
+import Link from "next/link";
 
-export const dynamic = "force-dynamic";
-
-// Placeholder: proves the app reads the seeded companies from Postgres.
-export default async function Home() {
-  const companies = await listCompanies();
-
+// Demo launcher: one door for candidates, one for recruiters.
+export default function Home() {
   return (
-    <main className="mx-auto w-full max-w-md flex-1 px-5 py-10">
-      <h1 className="text-3xl font-bold tracking-tight">SkillScan</h1>
-      <p className="mt-2 text-zinc-500">Setup check: companies loaded from Postgres.</p>
-      <ul className="mt-6 space-y-3">
-        {companies.map((c) => (
-          <li key={c.slug} className="flex items-center gap-3 rounded-2xl border border-zinc-200 p-4">
-            <span className="h-10 w-10 shrink-0 rounded-xl" style={{ background: c.color }} />
-            <div>
-              <div className="font-semibold">{c.name}</div>
-              <div className="text-sm text-zinc-500">{c.sector} · booth {c.booth} · {c.test_title}</div>
-            </div>
-          </li>
-        ))}
-      </ul>
+    <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center gap-8 px-5 py-12">
+      <div className="text-center">
+        <p className="text-5xl" aria-hidden>🧭</p>
+        <h1 className="mt-3 text-3xl font-bold tracking-tight">SkillScan</h1>
+        <p className="mt-2 text-slate-600">Show your skills, not your CV.</p>
+      </div>
+
+      <div className="flex flex-col gap-3">
+        <a
+          href="/demo/kirkas"
+          target="_blank"
+          rel="noopener"
+          className="flex min-h-20 items-center gap-4 rounded-3xl bg-brand-700 px-5 text-white shadow-md shadow-brand-700/20 active:scale-[0.99]"
+        >
+          <span className="text-3xl" aria-hidden>🙋</span>
+          <span className="flex-1">
+            <span className="block text-lg font-bold">I&apos;m a candidate</span>
+            <span className="block text-sm text-white/80">Opens a fresh booth QR link, as if scanned</span>
+          </span>
+          <span className="text-xl text-white/70" aria-hidden>↗</span>
+        </a>
+
+        <Link
+          href="/r"
+          className="flex min-h-20 items-center gap-4 rounded-3xl bg-white px-5 shadow-sm ring-1 ring-slate-200 active:scale-[0.99]"
+        >
+          <span className="text-3xl" aria-hidden>🧑‍💼</span>
+          <span className="flex-1">
+            <span className="block text-lg font-bold">I&apos;m a recruiter</span>
+            <span className="block text-sm text-slate-500">Enter your company PIN</span>
+          </span>
+          <span className="text-xl text-slate-300" aria-hidden>›</span>
+        </Link>
+      </div>
+
+      <p className="text-center text-xs text-slate-500">Demo with synthetic data only. No CVs, no contact data, no scores.</p>
     </main>
   );
 }
