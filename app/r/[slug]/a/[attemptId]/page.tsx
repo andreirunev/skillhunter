@@ -98,7 +98,7 @@ export default async function CandidatePage(props: PageProps<"/r/[slug]/a/[attem
         ))}
       </main>
 
-      <ActionBar attemptId={attempt.id} status={attempt.status} inviteCode={attempt.invite_code} />
+      <ActionBar key={attempt.id} attemptId={attempt.id} status={attempt.status} inviteCode={attempt.invite_code} />
     </div>
   );
 }

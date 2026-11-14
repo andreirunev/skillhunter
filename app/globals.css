@@ -26,3 +26,13 @@ body {
   background: #f3f6fb;
   color: #0f172a;
 }
+
+/* No grey flash or text/emoji selection when tapping controls on iOS.
+   `.tap` covers links styled as big buttons (launcher cards). */
+button,
+a[role="button"],
+.tap {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+}

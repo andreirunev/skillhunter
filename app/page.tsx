@@ -15,7 +15,7 @@ export default function Home() {
           href="/demo/kirkas"
           target="_blank"
           rel="noopener"
-          className="flex min-h-20 items-center gap-4 rounded-3xl bg-brand-700 px-5 text-white shadow-md shadow-brand-700/20 active:scale-[0.99]"
+          className="tap flex min-h-20 items-center gap-4 rounded-3xl bg-brand-700 px-5 text-white shadow-md shadow-brand-700/20 active:scale-[0.99]"
         >
           <span className="text-3xl" aria-hidden>🙋</span>
           <span className="flex-1">
@@ -27,7 +27,7 @@ export default function Home() {
 
         <Link
           href="/r"
-          className="flex min-h-20 items-center gap-4 rounded-3xl bg-white px-5 shadow-sm ring-1 ring-slate-200 active:scale-[0.99]"
+          className="tap flex min-h-20 items-center gap-4 rounded-3xl bg-white px-5 shadow-sm ring-1 ring-slate-200 active:scale-[0.99]"
         >
           <span className="text-3xl" aria-hidden>🧑‍💼</span>
           <span className="flex-1">
