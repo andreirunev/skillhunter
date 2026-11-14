@@ -4,9 +4,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ChartColumn, Info, QrCode, Users, type LucideIcon } from "lucide-react";
 
-const TABS: { path: string; label: string; icon: LucideIcon }[] = [
+// `also`: sub-screens that keep the tab active (the ticket template editor).
+const TABS: { path: string; label: string; icon: LucideIcon; also?: string[] }[] = [
   { path: "", label: "Candidates", icon: Users },
-  { path: "/codes", label: "Booth codes", icon: QrCode },
+  { path: "/codes", label: "Booth codes", icon: QrCode, also: ["/tickets"] },
   { path: "/stats", label: "Stats", icon: ChartColumn },
   { path: "/about", label: "About", icon: Info },
 ];
@@ -16,7 +17,7 @@ const TABS: { path: string; label: string; icon: LucideIcon }[] = [
 export function BottomTabs({ slug }: { slug: string }) {
   const pathname = usePathname();
   const base = `/r/${slug}`;
-  const active = TABS.find((t) => t.path && pathname.startsWith(base + t.path))?.path ?? "";
+  const active = TABS.find((t) => t.path && [t.path, ...(t.also ?? [])].some((p) => pathname.startsWith(base + p)))?.path ?? "";
 
   return (
     <nav data-dock aria-label="Recruiter sections"

@@ -1,31 +1,47 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
-import { CircleCheck, CircleDot } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { ChevronRight, CircleCheck, CircleDot, Printer } from "lucide-react";
 import { Spinner } from "@/components/Spinner";
 import { SectionLabel } from "@/components/ui/ScreenTitle";
 import { StatCard } from "@/components/ui/StatCard";
 import { toast } from "@/components/ui/Toast";
 import type { BoothCode } from "@/lib/recruiter";
+import { TICKETS_PER_SHEET } from "@/lib/tickets";
 import { createCodes } from "../actions";
 
-// Print block + code grid. A free tile copies its one code; a taken tile only
+type Batch = { id: string; size: number; taken: number; created: string };
+
+const SHOWN_CODES = 30;
+
+// Print tickets (rounded up to full A4 sheets), reprint a recent batch, and a
+// small list of codes. A free tile copies its one code; a taken tile only
 // says "Taken" (never who or when).
-export function CodesView({ slug, free, taken, codes, max, days, highlight }: {
+export function CodesView({ slug, free, taken, codes, batches, max, days, highlight }: {
   slug: string;
   free: number;
   taken: number;
   codes: BoothCode[];
+  batches: Batch[];
   max: number;
   days: number;
   highlight: boolean;
 }) {
-  const [state, formAction, pending] = useActionState(createCodes, { error: "", created: 0 });
+  const router = useRouter();
+  const [state, formAction, pending] = useActionState(createCodes, { error: "", created: 0, batch: null });
   const [count, setCount] = useState("10");
 
+  const asked = Number(count);
+  const valid = Number.isInteger(asked) && asked >= 1 && asked <= max;
+  const tickets = valid ? Math.min(max, Math.ceil(asked / TICKETS_PER_SHEET) * TICKETS_PER_SHEET) : 0;
+  const sheets = tickets / TICKETS_PER_SHEET;
+
+  // New batch: straight to its print view, which opens the print dialog.
   useEffect(() => {
-    if (state.created) toast(`Created ${state.created} code${state.created === 1 ? "" : "s"}`);
-  }, [state]);
+    if (state.batch) router.push(`/r/${slug}/print/${state.batch}?auto=1`);
+  }, [state, router, slug]);
 
   async function copy(code: string) {
     try {
@@ -43,22 +59,54 @@ export function CodesView({ slug, free, taken, codes, max, days, highlight }: {
         <StatCard label="Taken" value={taken} icon={CircleCheck} tone="muted" />
       </div>
 
-      <form action={formAction}
-        className={`flex flex-col gap-3 rounded-card border bg-card p-4 ${highlight ? "border-fg/60" : "border-border"}`}>
-        <input type="hidden" name="slug" value={slug} />
-        <label className="flex items-center justify-between gap-3 text-sm font-semibold">
-          How many codes
-          <input name="count" type="number" inputMode="numeric" min={1} max={max} required
-            value={count} onChange={(e) => setCount(e.target.value)}
-            className="h-11 w-24 rounded-btn border border-border bg-bg px-3 text-right text-base font-semibold tabular-nums outline-none focus:border-fg/40" />
-        </label>
-        <button type="submit" disabled={pending} aria-busy={pending} className="ui-btn ui-btn-primary w-full min-h-12 text-base">
-          {pending ? <><Spinner />Saving…</> : "Print"}
-        </button>
-        <p aria-live="polite" className={`text-[13px] ${state.error ? "font-medium text-bad" : "text-muted"}`}>
-          {state.error || `Single use, valid ${days} days. Candidates type the code at /join.`}
-        </p>
-      </form>
+      <section className="flex flex-col gap-3">
+        <SectionLabel>Print tickets</SectionLabel>
+        <form action={formAction}
+          className={`flex flex-col gap-3 rounded-card border bg-card p-4 ${highlight ? "border-fg/60" : "border-border"}`}>
+          <input type="hidden" name="slug" value={slug} />
+          <label className="flex items-center justify-between gap-3 text-sm font-semibold">
+            How many tickets
+            <input name="count" type="number" inputMode="numeric" min={1} max={max} required
+              value={count} onChange={(e) => setCount(e.target.value)}
+              className="h-11 w-24 rounded-btn border border-border bg-bg px-3 text-right text-base font-semibold tabular-nums outline-none focus:border-fg/40" />
+          </label>
+          <p className="text-[13px] text-muted">
+            {valid
+              ? `${tickets} tickets on ${sheets} A4 sheet${sheets === 1 ? "" : "s"} (${TICKETS_PER_SHEET} per sheet, rounded up).`
+              : `Choose 1 to ${max}.`}
+          </p>
+          <button type="submit" disabled={pending || !valid} aria-busy={pending} className="ui-btn ui-btn-primary min-h-12 w-full text-base">
+            {pending ? <><Spinner />Creating…</> : <><Printer className="size-4" aria-hidden />Create and print</>}
+          </button>
+          <p aria-live="polite" className={`text-[13px] ${state.error ? "font-medium text-bad" : "text-muted"}`}>
+            {state.error || `Each code works once and expires after ${days} days.`}
+          </p>
+          <Link href={`/r/${slug}/tickets`} className="tap -my-1 inline-flex min-h-11 items-center gap-1 self-start text-sm font-semibold">
+            Edit ticket template<ChevronRight className="size-4" aria-hidden />
+          </Link>
+        </form>
+      </section>
+
+      {batches.length > 0 && (
+        <section className="flex flex-col gap-3">
+          <SectionLabel>Recent batches · {batches.length}</SectionLabel>
+          <ul className="flex flex-col gap-2">
+            {batches.map((b) => (
+              <li key={b.id}>
+                <Link href={`/r/${slug}/print/${b.id}`}
+                  className="tap flex min-h-14 items-center gap-3 rounded-card border border-border bg-card px-3.5 py-2.5 active:bg-track">
+                  <Printer className="size-4 shrink-0 text-muted" aria-hidden />
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-semibold">{b.size} tickets · {b.created}</span>
+                    <span className="block text-[13px] text-muted">{b.size - b.taken} free · {b.taken} taken</span>
+                  </span>
+                  <span className="text-sm font-semibold">Reprint</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <section className="flex flex-col gap-3">
         <SectionLabel>Codes · {codes.length}</SectionLabel>
@@ -66,16 +114,16 @@ export function CodesView({ slug, free, taken, codes, max, days, highlight }: {
           <p className="rounded-card border border-border bg-card p-4 text-center text-sm text-muted">No codes yet. Print some above.</p>
         ) : (
           <ul className="grid grid-cols-3 gap-2 sm:grid-cols-4">
-            {codes.map((c) => (
+            {codes.slice(0, SHOWN_CODES).map((c) => (
               <li key={c.code}>
                 {c.taken ? (
-                  <div className="flex flex-col items-center gap-2 rounded-tile border border-border bg-card px-1 py-3 opacity-55">
+                  <div className="flex flex-col items-center gap-1.5 rounded-tile border border-border bg-card px-1 py-2.5 opacity-55">
                     <span className="font-mono text-sm font-bold tracking-wider text-muted line-through decoration-1">{c.code}</span>
                     <span className="rounded-pill bg-fg/10 px-2 py-0.5 text-[11px] font-semibold text-muted">Taken</span>
                   </div>
                 ) : (
                   <button type="button" onClick={() => copy(c.code)} aria-label={`Copy code ${c.code}`}
-                    className="flex w-full flex-col items-center gap-2 rounded-tile border border-border bg-card px-1 py-3 active:bg-track">
+                    className="flex w-full flex-col items-center gap-1.5 rounded-tile border border-border bg-card px-1 py-2.5 active:bg-track">
                     <span className="font-mono text-sm font-bold tracking-wider">{c.code}</span>
                     <span className="rounded-pill bg-ok/15 px-2 py-0.5 text-[11px] font-semibold text-ok">Free</span>
                   </button>
@@ -83,6 +131,9 @@ export function CodesView({ slug, free, taken, codes, max, days, highlight }: {
               </li>
             ))}
           </ul>
+        )}
+        {codes.length > SHOWN_CODES && (
+          <p className="text-[13px] text-muted">and {codes.length - SHOWN_CODES} more</p>
         )}
       </section>
     </>

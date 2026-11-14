@@ -435,6 +435,12 @@ a[role="button"],
   font-size: 6.5pt;
   font-weight: 700;
 }
+/* Editor preview: a little smaller on narrow phones so it fits the column. */
+@media (max-width: 400px) {
+  .tk-preview .tk {
+    zoom: 0.9;
+  }
+}
 /* Full QR target, kept in the HTML for checking; not printed. */
 .tk-qr-url {
   display: none;

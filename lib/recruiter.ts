@@ -1,10 +1,11 @@
 import { cache } from "react";
 import { db } from "./db.ts";
 import { isUuid } from "./data.ts";
-import { makeInviteCode } from "./codes.ts";
+import { makeInviteCode, PRINTED_CODE_DAYS } from "./codes.ts";
 import type { FlagCode } from "./flags.ts";
 import type { Answer, AnswerKey, Skill, TaskPayload, TaskType } from "./tasks.ts";
 import type { Lang } from "./i18n.ts";
+import type { TicketTemplate } from "./tickets.ts";
 
 // Recruiter-side data. Demo access is by company slug; a real deployment puts
 // staff login in front of this. Nothing here scores, ranks or sorts by results.
@@ -13,12 +14,12 @@ export const STATUSES = ["new", "invited", "at_booth", "good_fit", "needs_review
 export type Status = (typeof STATUSES)[number];
 export const isStatus = (x: unknown): x is Status => typeof x === "string" && (STATUSES as readonly string[]).includes(x);
 
-export type Company = { id: string; slug: string; name: string; sector: string; booth: string; color: string; test_id: string; test_title: string; task_count: number; expected_sec: number };
+export type Company = { id: string; slug: string; name: string; sector: string; booth: string; color: string; ticket: unknown; test_id: string; test_title: string; task_count: number; expected_sec: number };
 
 // Cached per request: the recruiter layout and its page both read it.
 export const getCompany = cache(async (slug: string): Promise<Company | null> => {
   const [row] = await db()<Company[]>`
-    SELECT c.id, c.slug, c.name, c.sector, c.booth, c.color, t.id AS test_id, t.title AS test_title,
+    SELECT c.id, c.slug, c.name, c.sector, c.booth, c.color, c.ticket, t.id AS test_id, t.title AS test_title,
       (SELECT count(*)::int FROM test_tasks WHERE test_id = t.id) AS task_count,
       (SELECT coalesce(sum(expected_sec), 0)::int FROM test_tasks WHERE test_id = t.id) AS expected_sec
     FROM companies c JOIN tests t ON t.company_id = c.id
@@ -176,4 +177,27 @@ export async function listBatch(testId: string, batchId: string): Promise<BoothC
     WHERE test_id = ${testId}::uuid AND (extract(epoch from expires_at) * 1000000)::bigint = ${batchId}::bigint
     ORDER BY token`;
   return rows.length ? [...rows] : null;
+}
+
+export type BatchRow = { id: string; size: number; taken: number; created: Date };
+
+// Recent print batches still valid, newest first. Single-code demo links are
+// not batches and are left out.
+export async function listBatches(testId: string, limit = 5): Promise<BatchRow[]> {
+  const rows = await db()<BatchRow[]>`
+    SELECT (extract(epoch from expires_at) * 1000000)::bigint::text AS id, count(*)::int AS size,
+      count(*) FILTER (WHERE status = 'activated')::int AS taken,
+      expires_at - ${PRINTED_CODE_DAYS}::int * interval '1 day' AS created
+    FROM qr_tokens
+    WHERE test_id = ${testId}::uuid AND expires_at > now()
+    GROUP BY expires_at HAVING count(*) > 1
+    ORDER BY expires_at DESC LIMIT ${limit}`;
+  return [...rows];
+}
+
+// Ticket text for the company's printed booth tickets (companies.ticket).
+export async function saveTicket(companyId: string, template: TicketTemplate): Promise<boolean> {
+  const sql = db();
+  const rows = await sql`UPDATE companies SET ticket = ${sql.json(template)} WHERE id = ${companyId}::uuid RETURNING id`;
+  return rows.length > 0;
 }

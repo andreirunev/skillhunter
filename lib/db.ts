@@ -15,6 +15,9 @@ CREATE TABLE IF NOT EXISTS companies (
   color  text NOT NULL
 );
 
+-- Booth ticket text per company (lib/tickets.ts). NULL = the defaults.
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS ticket jsonb;
+
 CREATE TABLE IF NOT EXISTS tests (
   id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   company_id uuid NOT NULL REFERENCES companies(id) ON DELETE CASCADE,

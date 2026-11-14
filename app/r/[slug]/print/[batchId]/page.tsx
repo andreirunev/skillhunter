@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import QRCode from "qrcode";
 import { Ticket } from "@/components/Ticket";
 import { getCompany, listBatch } from "@/lib/recruiter";
-import { defaultTicket, TICKETS_PER_SHEET } from "@/lib/tickets";
+import { defaultTicket, mergeTicket, TICKETS_PER_SHEET } from "@/lib/tickets";
 import { PrintBar } from "./PrintBar";
 
 export const dynamic = "force-dynamic";
@@ -29,7 +29,7 @@ export default async function PrintPage(props: PageProps<"/r/[slug]/print/[batch
   const codes = await listBatch(company.test_id, batchId);
   if (!codes) notFound();
 
-  const template = defaultTicket(company);
+  const template = mergeTicket(company.ticket, defaultTicket(company));
   const origin = await siteOrigin();
   const free = codes.filter((c) => !c.taken).map((c) => c.code);
   const tickets = await Promise.all(free.map(async (code) => {
