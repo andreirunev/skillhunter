@@ -74,8 +74,8 @@ export type SimTask = {
 };
 
 // What the candidate's phone gets: no key, no guide.
-export type PlayerTask = { id: string; format: Format; title: string; payload: AnyPayload };
-export const toPlayerTask = (t: SimTask): PlayerTask => ({ id: t.id, format: t.format, title: t.title, payload: t.payload });
+export type PlayerTask = { id: string; format: Format; duty: string; title: string; payload: AnyPayload };
+export const toPlayerTask = (t: SimTask): PlayerTask => ({ id: t.id, format: t.format, duty: t.duty, title: t.title, payload: t.payload });
 
 // Library entry (task_library row).
 export type LibraryTask = Omit<SimTask, "id" | "library_id" | "duty"> & {

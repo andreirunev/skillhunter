@@ -5,7 +5,6 @@ import { deviceHash } from "@/lib/device";
 import { makeAvatar } from "@/lib/avatar";
 import { cookieLang } from "@/lib/lang";
 import { SKIN_THEME_COLOR } from "@/lib/theme";
-import { TIME_LIMIT_MINUTES } from "@/lib/timing";
 import { CandidateShell } from "@/components/CandidateShell";
 import { OtherDevice } from "@/components/OtherDevice";
 import { Activate } from "./Activate";
@@ -45,7 +44,8 @@ export default async function ActivatePage(props: PageProps<"/c/[token]">) {
         avatar={avatar}
         taskCount={view?.task_count ?? 0}
         minutes={Math.max(1, Math.round((view?.expected_sec ?? 0) / 60))}
-        limitMinutes={TIME_LIMIT_MINUTES}
+        limitMinutes={view?.limit_minutes ?? 20}
+        englishRequired={view?.english_required ?? false}
       />
     </CandidateShell>
   );

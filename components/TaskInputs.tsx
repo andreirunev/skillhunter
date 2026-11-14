@@ -29,7 +29,7 @@ function tileClass(selected: boolean, grid: boolean) {
   ].join(" ");
 }
 
-function ChoiceInput({ options, layout, value, onChange }: InputProps<string> & { options: Option[]; layout?: string }) {
+export function ChoiceInput({ options, layout, value, onChange }: InputProps<string> & { options: Option[]; layout?: string }) {
   const grid = layout === "grid";
   return (
     <div className={grid ? "grid grid-cols-2 gap-3" : "flex flex-col gap-3"}>
@@ -66,7 +66,7 @@ function MultiInput({ options, layout, value = [], onChange }: InputProps<string
   );
 }
 
-function OrderInput({ options, value = [], onChange, lang }: InputProps<string[]> & { options: Option[]; lang: Lang }) {
+export function OrderInput({ options, value = [], onChange, lang }: InputProps<string[]> & { options: Option[]; lang: Lang }) {
   const byId = (id: string) => options.find((o) => o.id === id)!;
   const remaining = options.filter((o) => !value.includes(o.id));
   return (

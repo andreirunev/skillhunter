@@ -3,11 +3,12 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useLang } from "@/components/CandidateShell";
-import { TaskInput } from "@/components/TaskInputs";
+import { SimTaskView } from "@/components/SimInputs";
 import { Spinner } from "@/components/Spinner";
-import { isAnswered, type Answer } from "@/lib/tasks";
-import { t, type MessageKey } from "@/lib/i18n";
-import type { PlayerAttempt, PlayerTask, SavedAnswer } from "@/lib/data";
+import type { Answer } from "@/lib/tasks";
+import { isAnsweredSim, type PlayerTask, type QuickPayload } from "@/lib/sim";
+import { t } from "@/lib/i18n";
+import type { PlayerAttempt, SavedAnswer } from "@/lib/data";
 
 type Props = { attempt: PlayerAttempt; tasks: PlayerTask[]; saved: SavedAnswer[] };
 
@@ -59,7 +60,7 @@ export function TaskPlayer({ attempt, tasks, saved }: Props) {
 
   const task = tasks[index];
   const value = answers[task.id];
-  const answered = value !== undefined && isAnswered(task.type, task.payload, value);
+  const answered = value !== undefined && isAnsweredSim(task.format, task.payload, value);
   const isLast = index === tasks.length - 1;
 
   function elapsed() {
@@ -74,7 +75,8 @@ export function TaskPlayer({ attempt, tasks, saved }: Props) {
     timeMs.current[task.id] = total;
     // A typed number counts as changed when it differs from an earlier saved value.
     const prev = lastSaved.current[task.id];
-    const numberRevision = task.type === "number" && prev !== undefined && prev !== null && prev !== answer;
+    const isNumber = task.format === "quick_logic" && (task.payload as QuickPayload).kind === "number";
+    const numberRevision = isNumber && prev !== undefined && prev !== null && prev !== answer;
     const changeCount = (changes[task.id] ?? 0) + (numberRevision ? 1 : 0);
     if (numberRevision) setChanges((c) => ({ ...c, [task.id]: changeCount }));
 
@@ -145,17 +147,7 @@ export function TaskPlayer({ attempt, tasks, saved }: Props) {
 
       {/* Keyed by task: each new task fades in (150ms). */}
       <main key={task.id} className="flex flex-1 animate-fade flex-col gap-4 px-4 pb-32 pt-5">
-        <section>
-          <h1 className="text-xl font-bold leading-snug">{task.payload.title}</h1>
-          {task.payload.emoji && <div className="mt-3 text-center text-4xl leading-tight" aria-hidden>{task.payload.emoji}</div>}
-          <p className="mt-3 text-base leading-relaxed">{task.payload.prompt}</p>
-          {task.payload.code && (
-            <pre className="mt-3 overflow-x-auto rounded-tile border border-border bg-card p-4 font-mono text-sm leading-relaxed">{task.payload.code}</pre>
-          )}
-          <p className="mt-3 text-[13px] font-medium text-muted">{t(lang, `hint_${task.type}` as MessageKey)}</p>
-        </section>
-
-        <TaskInput type={task.type} payload={task.payload} value={value} onChange={onChange} lang={lang} />
+        <SimTaskView task={task} value={value} onChange={onChange} lang={lang} />
       </main>
 
       <footer className="fixed inset-x-0 bottom-0 z-10 border-t border-border bg-bg px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">

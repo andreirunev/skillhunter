@@ -7,7 +7,7 @@ import type { Answer, AnswerKey, Skill, TaskPayload, TaskType } from "./tasks.ts
 import type { Lang } from "./i18n.ts";
 import type { TicketTemplate } from "./tickets.ts";
 import { isInviteCode, normalizeInviteCode, type Contact, type RecruiterStage, type Stage } from "./stage.ts";
-import { closeExpiredForTest, TIME_LIMIT_MINUTES } from "./timing.ts";
+import { closeExpiredForTest } from "./timing.ts";
 
 // Recruiter-side data. Demo access is by company slug; a real deployment puts
 // staff login in front of this. Nothing here scores, ranks or sorts by results.
@@ -58,7 +58,7 @@ export async function listCandidates(testId: string): Promise<CandidateRow[]> {
       a.started_at, a.finished_at,
       (SELECT count(*)::int FROM answers WHERE attempt_id = a.id) AS answered,
       coalesce(extract(epoch from (a.finished_at - a.started_at)) * 1000, 0)::int AS total_ms,
-      coalesce(a.finished_at >= a.started_at + make_interval(mins => ${TIME_LIMIT_MINUTES}), false) AS limit_reached,
+      coalesce(a.finished_at >= a.started_at + make_interval(mins => a.time_limit_minutes), false) AS limit_reached,
       i.attempt_id IS NOT NULL AS invited,
       coalesce(i.code_verified_at > now() - make_interval(mins => ${VERIFY_MINUTES}), false) AS code_verified, a.stage, a.contact
     FROM attempts a LEFT JOIN invitations i ON i.attempt_id = a.id
@@ -90,11 +90,11 @@ export async function getCandidate(testId: string, attemptId: string) {
   if (!isUuid(attemptId)) return null;
   await closeExpiredForTest(testId);
   const sql = db();
-  const [attempt] = await sql<(Omit<CandidateRow, "answered">)[]>`
-    SELECT a.id, a.avatar_name, a.avatar_emoji, a.avatar_color, a.lang, a.status,
+  const [attempt] = await sql<(Omit<CandidateRow, "answered"> & { time_limit_minutes: number })[]>`
+    SELECT a.id, a.avatar_name, a.avatar_emoji, a.avatar_color, a.lang, a.status, a.time_limit_minutes,
       a.started_at, a.finished_at,
       coalesce(extract(epoch from (a.finished_at - a.started_at)) * 1000, 0)::int AS total_ms,
-      coalesce(a.finished_at >= a.started_at + make_interval(mins => ${TIME_LIMIT_MINUTES}), false) AS limit_reached,
+      coalesce(a.finished_at >= a.started_at + make_interval(mins => a.time_limit_minutes), false) AS limit_reached,
       i.attempt_id IS NOT NULL AS invited,
       coalesce(i.code_verified_at > now() - make_interval(mins => ${VERIFY_MINUTES}), false) AS code_verified, a.stage, a.contact
     FROM attempts a LEFT JOIN invitations i ON i.attempt_id = a.id

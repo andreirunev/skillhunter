@@ -17,11 +17,12 @@ type Props = {
   taskCount: number;
   minutes: number;
   limitMinutes: number;
+  englishRequired: boolean;
 };
 
 // Start screen. The avatar was assigned when the code was entered and cannot
 // be changed here. Pressing Start starts the clock on the server.
-export function Activate({ token, state, avatar, taskCount, minutes, limitMinutes }: Props) {
+export function Activate({ token, state, avatar, taskCount, minutes, limitMinutes, englishRequired }: Props) {
   const router = useRouter();
   const lang = useLang();
   const [busy, setBusy] = useState(false);
@@ -65,6 +66,9 @@ export function Activate({ token, state, avatar, taskCount, minutes, limitMinute
       </div>
 
       <p className="text-sm text-muted">{t(lang, "privacyLine")}</p>
+      <p className="text-sm text-muted">
+        {t(lang, "tasksEnglish")}{englishRequired && <> {t(lang, "englishNeeded")}</>}
+      </p>
 
       <section className="flex items-center gap-4 rounded-card border border-border bg-card p-4">
         <AvatarTile emoji={avatar.emoji} color={avatar.color} size={64} />

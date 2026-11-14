@@ -10,7 +10,6 @@ import { joinSep } from "@/components/ui/Sep";
 import { getCandidate, getCompany, type DetailTask } from "@/lib/recruiter";
 import { describeAnswer, GENERIC_FOLLOW_UPS, SKILLS, TYPE_LABELS } from "@/lib/tasks";
 import { formatClock, formatDuration, formatMinutes, LANG_SHORT } from "@/lib/format";
-import { TIME_LIMIT_MINUTES } from "@/lib/timing";
 
 export const dynamic = "force-dynamic";
 
@@ -38,7 +37,7 @@ export default async function CandidatePage(props: PageProps<"/r/[slug]/a/[attem
             <AvatarTile emoji={attempt.avatar_emoji} color={attempt.avatar_color} size={32} />
             <p className="min-w-0 truncate text-sm font-semibold">{attempt.avatar_name}</p>
             <span className="ml-auto shrink-0 text-[13px] text-muted">
-              {joinSep([LANG_SHORT[attempt.lang] ?? attempt.lang, `limit ${TIME_LIMIT_MINUTES} min`])}
+              {joinSep([LANG_SHORT[attempt.lang] ?? attempt.lang, `limit ${attempt.time_limit_minutes} min`])}
             </span>
           </div>
           {attempt.contact && (

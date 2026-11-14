@@ -3,10 +3,12 @@ import { db } from "./db.ts";
 import { isCodeShape, makeToken } from "./codes.ts";
 import { makeAvatar } from "./avatar.ts";
 import { computeFlags, type FlagCode } from "./flags.ts";
-import { isAnswered, matchesKey, type Answer, type AnswerKey, type TaskPayload, type TaskType } from "./tasks.ts";
+import type { Answer } from "./tasks.ts";
+import { compareSim, isAnsweredSim, toPlayerTask, type PlayerTask } from "./sim.ts";
+import { attemptTasks, DEFAULT_TIME_LIMIT } from "./sim-store.ts";
 import type { Lang } from "./i18n.ts";
 import type { Contact, Stage } from "./stage.ts";
-import { closeIfExpired, TIME_LIMIT_MINUTES } from "./timing.ts";
+import { closeIfExpired } from "./timing.ts";
 
 // Data access for the candidate flow. Nothing here returns an answer key,
 // a flag or a recruiter label to the candidate side.
@@ -30,6 +32,8 @@ export type TokenView = {
   test_title: string;
   task_count: number;
   expected_sec: number;
+  limit_minutes: number;
+  english_required: boolean;
 };
 
 export async function getTokenView(token: string, ownerHash: string | null): Promise<TokenView | null> {
@@ -38,20 +42,29 @@ export async function getTokenView(token: string, ownerHash: string | null): Pro
       coalesce(a.owner_hash = ${ownerHash ?? ""}, false) AS owned,
       (a.finished_at IS NOT NULL OR EXISTS (SELECT 1 FROM answers WHERE attempt_id = a.id)) AS started,
       a.avatar_name, a.avatar_emoji, a.avatar_color,
-      c.name AS company_name, c.booth, c.color, t.title AS test_title,
-      (SELECT count(*)::int FROM test_tasks WHERE test_id = t.id) AS task_count,
-      (SELECT coalesce(sum(expected_sec), 0)::int FROM test_tasks WHERE test_id = t.id) AS expected_sec
+      c.name AS company_name, c.booth, c.color, coalesce(ct.title, t.title) AS test_title,
+      coalesce(jsonb_array_length(ct.tasks), (SELECT count(*)::int FROM test_tasks WHERE test_id = t.id)) AS task_count,
+      coalesce((SELECT sum((x->>'expected_seconds')::int)::int FROM jsonb_array_elements(ct.tasks) x),
+        (SELECT coalesce(sum(expected_sec), 0)::int FROM test_tasks WHERE test_id = t.id)) AS expected_sec,
+      coalesce(a.time_limit_minutes, ct.time_limit_minutes, ${DEFAULT_TIME_LIMIT}) AS limit_minutes,
+      coalesce(ct.english_required, false) AS english_required
     FROM qr_tokens q
     JOIN tests t ON t.id = q.test_id
     JOIN companies c ON c.id = t.company_id
     LEFT JOIN attempts a ON a.id = q.attempt_id
+    -- The attempt's own version; before entry, the version it would get.
+    LEFT JOIN company_tests ct ON ct.id = CASE WHEN a.id IS NULL
+      THEN (SELECT id FROM company_tests WHERE company_id = c.id AND version = c.live_version)
+      ELSE a.company_test_id END
     WHERE q.token = ${token}`;
   return row ?? null;
 }
 
 // Burn on entry: the first valid entry of a code creates the attempt and binds
 // it to the entering device. One atomic statement, so a code can never start
-// a second attempt. Avatar and language are chosen on the next screen.
+// a second attempt. Avatar and language are chosen on the next screen. The
+// attempt is pinned to the company's live test version and its time limit
+// (nothing published yet: the older task list and the default limit).
 export async function enterCode(code: string, ownerHash: string): Promise<string | null> {
   const id = randomUUID();
   const avatar = makeAvatar();
@@ -60,9 +73,15 @@ export async function enterCode(code: string, ownerHash: string): Promise<string
       UPDATE qr_tokens SET status = 'activated', attempt_id = ${id}::uuid
       WHERE token = ${code} AND status = 'new' AND expires_at > now()
       RETURNING test_id
+    ), live AS (
+      SELECT ct.id, ct.time_limit_minutes FROM tok
+      JOIN tests t ON t.id = tok.test_id JOIN companies c ON c.id = t.company_id
+      JOIN company_tests ct ON ct.company_id = c.id AND ct.version = c.live_version
     )
-    INSERT INTO attempts (id, test_id, avatar_name, avatar_emoji, avatar_color, owner_hash)
-    SELECT ${id}::uuid, test_id, ${avatar.name}, ${avatar.emoji}, ${avatar.color}, ${ownerHash} FROM tok
+    INSERT INTO attempts (id, test_id, avatar_name, avatar_emoji, avatar_color, owner_hash, company_test_id, time_limit_minutes)
+    SELECT ${id}::uuid, tok.test_id, ${avatar.name}, ${avatar.emoji}, ${avatar.color}, ${ownerHash},
+      live.id, coalesce(live.time_limit_minutes, ${DEFAULT_TIME_LIMIT})
+    FROM tok LEFT JOIN live ON true
     RETURNING id`;
   return row?.id ?? null;
 }
@@ -130,7 +149,7 @@ export type PlayerAttempt = {
   booth: string;
   company_color: string;
 };
-export type PlayerTask = { id: string; type: TaskType; payload: TaskPayload };
+export type { PlayerTask };
 export type SavedAnswer = { task_id: string; answer: Answer; time_ms: number; changes: number };
 
 export async function getPlayerData(attemptId: string) {
@@ -139,20 +158,19 @@ export async function getPlayerData(attemptId: string) {
   const sql = db();
   const [attempt] = await sql<PlayerAttempt[]>`
     SELECT a.id, a.lang, a.finished_at IS NOT NULL AS finished,
-      greatest(0, extract(epoch from (a.started_at + make_interval(mins => ${TIME_LIMIT_MINUTES}) - now())) * 1000)::int AS remaining_ms,
+      greatest(0, extract(epoch from (a.started_at + make_interval(mins => a.time_limit_minutes) - now())) * 1000)::int AS remaining_ms,
       a.avatar_name, a.avatar_emoji, a.avatar_color,
       c.name AS company_name, c.booth, c.color AS company_color
     FROM attempts a JOIN tests t ON t.id = a.test_id JOIN companies c ON c.id = t.company_id
     WHERE a.id = ${attemptId}::uuid`;
   if (!attempt) return null;
   const [tasks, answers] = await Promise.all([
-    sql<PlayerTask[]>`
-      SELECT tt.id, tt.type, tt.payload FROM test_tasks tt
-      JOIN attempts a ON a.test_id = tt.test_id
-      WHERE a.id = ${attemptId}::uuid ORDER BY tt.position`,
+    attemptTasks(attemptId),
     sql<SavedAnswer[]>`SELECT task_id, answer, time_ms, changes FROM answers WHERE attempt_id = ${attemptId}::uuid`,
   ]);
-  return { attempt, tasks: [...tasks], answers: [...answers] };
+  // Keys and the interview guide stay on the server.
+  const playerTasks: PlayerTask[] = (tasks ?? []).map(toPlayerTask);
+  return { attempt, tasks: playerTasks, answers: [...answers] };
 }
 
 export type SaveResult = "ok" | "not_found" | "finished" | "invalid";
@@ -166,13 +184,13 @@ export async function saveAnswer(
 ): Promise<SaveResult> {
   if (!isUuid(attemptId) || !isUuid(taskId)) return "not_found";
   const sql = db();
-  const [ctx] = await sql<{ finished: boolean; expired: boolean; type: TaskType; payload: TaskPayload; answer_key: AnswerKey; expected_sec: number }[]>`
-    SELECT a.finished_at IS NOT NULL AS finished,
-      now() > a.started_at + make_interval(mins => ${TIME_LIMIT_MINUTES}) AS expired,
-      tt.type, tt.payload, tt.answer_key, tt.expected_sec
-    FROM attempts a JOIN test_tasks tt ON tt.test_id = a.test_id AND tt.id = ${taskId}::uuid
-    WHERE a.id = ${attemptId}::uuid`;
-  if (!ctx) return "not_found";
+  const [ctx] = await sql<{ finished: boolean; expired: boolean }[]>`
+    SELECT finished_at IS NOT NULL AS finished,
+      now() > started_at + make_interval(mins => time_limit_minutes) AS expired
+    FROM attempts WHERE id = ${attemptId}::uuid`;
+  // Only a task of this attempt's own version counts.
+  const task = ctx ? (await attemptTasks(attemptId))?.find((x) => x.id === taskId) : undefined;
+  if (!ctx || !task) return "not_found";
   if (ctx.finished) return "finished";
   // Past the deadline: close the attempt and refuse the answer (409).
   if (ctx.expired) {
@@ -180,15 +198,15 @@ export async function saveAnswer(
     return "finished";
   }
   const skipped = answer === null;
-  if (!skipped && !isAnswered(ctx.type, ctx.payload, answer)) return "invalid";
+  if (!skipped && !isAnsweredSim(task.format, task.payload, answer)) return "invalid";
 
   const time = Math.max(0, Math.min(Math.round(timeMs), 2 * 60 * 60 * 1000));
   const changeCount = Math.max(0, Math.min(Math.round(changes), 99));
-  const flags: FlagCode[] = computeFlags({ timeMs: time, expectedSec: ctx.expected_sec, changes: changeCount, skipped });
+  const flags: FlagCode[] = computeFlags({ timeMs: time, expectedSec: task.expected_seconds, changes: changeCount, skipped });
   await sql`
     INSERT INTO answers (attempt_id, task_id, answer, matches_key, time_ms, changes, flags)
     VALUES (${attemptId}::uuid, ${taskId}::uuid, ${skipped ? null : sql.json(answer)},
-      ${matchesKey(ctx.type, answer, ctx.answer_key)}, ${time}, ${changeCount}, ${sql.json(flags)})
+      ${compareSim(task, answer)}, ${time}, ${changeCount}, ${sql.json(flags)})
     ON CONFLICT (attempt_id, task_id) DO UPDATE SET
       answer = EXCLUDED.answer, matches_key = EXCLUDED.matches_key, time_ms = EXCLUDED.time_ms,
       changes = EXCLUDED.changes, flags = EXCLUDED.flags`;
@@ -200,7 +218,7 @@ export async function saveAnswer(
 export async function finishAttempt(attemptId: string): Promise<boolean> {
   if (!isUuid(attemptId)) return false;
   const rows = await db()`
-    UPDATE attempts SET finished_at = coalesce(finished_at, least(now(), started_at + make_interval(mins => ${TIME_LIMIT_MINUTES})))
+    UPDATE attempts SET finished_at = coalesce(finished_at, least(now(), started_at + make_interval(mins => time_limit_minutes)))
     WHERE id = ${attemptId}::uuid RETURNING id`;
   return rows.length > 0;
 }
@@ -212,7 +230,7 @@ export async function getInvitationView(attemptId: string) {
   await closeIfExpired(attemptId);
   const [row] = await db()<{ lang: Lang; booth: string; company_name: string; finished: boolean; limit_reached: boolean; code: string | null; stage: Stage }[]>`
     SELECT a.lang, c.booth, c.name AS company_name, a.finished_at IS NOT NULL AS finished, a.stage,
-      coalesce(a.finished_at >= a.started_at + make_interval(mins => ${TIME_LIMIT_MINUTES}), false) AS limit_reached, i.code
+      coalesce(a.finished_at >= a.started_at + make_interval(mins => a.time_limit_minutes), false) AS limit_reached, i.code
     FROM attempts a
     JOIN tests t ON t.id = a.test_id JOIN companies c ON c.id = t.company_id
     LEFT JOIN invitations i ON i.attempt_id = a.id
