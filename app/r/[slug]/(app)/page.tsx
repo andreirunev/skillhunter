@@ -38,7 +38,7 @@ export default async function CandidatesPage(props: PageProps<"/r/[slug]">) {
       ...(STAGE_NOTE[c.stage] ? [STAGE_NOTE[c.stage]!] : []),
       ...(c.finished_at
         ? [`Finished ${formatClock(c.finished_at)}`, formatMinutes(c.total_ms), ...(c.limit_reached ? ["limit reached"] : [])]
-        : ["In progress", `${c.answered}/${company.task_count} tasks`]),
+        : ["In progress", `${c.answered}/${c.task_count} tasks`]),
       LANG_SHORT[c.lang] ?? c.lang,
     ],
     contact: c.stage === "full_interview" ? c.contact : null,

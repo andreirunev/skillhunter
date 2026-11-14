@@ -36,8 +36,11 @@ export default async function AboutPage(props: PageProps<"/r/[slug]/about">) {
       <section className="rounded-card border border-border bg-card p-4">
         <p className="font-semibold">{company.test_title}</p>
         <p className="mt-0.5 text-[13px] text-muted">
-          {joinSep([`${company.task_count} tasks`, `≈ ${Math.max(1, Math.round(company.expected_sec / 60))} min`])}
+          {joinSep([`${company.task_count} tasks`, `≈ ${Math.max(1, Math.round(company.expected_sec / 60))} min`, `limit ${company.time_limit_minutes} min`])}
         </p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Link href={`/r/${slug}/guide`} className="ui-btn ui-btn-secondary">Interview guide</Link>
+        </div>
       </section>
 
       <section className="flex flex-col gap-3">

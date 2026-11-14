@@ -29,8 +29,8 @@ export function TaskNotes({ attemptId, taskId, questions, initialAsked, initialN
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-tile border border-border p-3">
-      <p className="text-sm font-semibold">Ask at the booth</p>
+    <div className="flex flex-col gap-3 border border-border p-3">
+      <p className="text-sm font-semibold">Follow-up questions</p>
       <ul className="flex flex-col gap-2 text-sm">
         {questions.map((q) => (
           <li key={q} className="flex gap-2">

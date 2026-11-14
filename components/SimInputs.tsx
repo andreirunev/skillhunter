@@ -221,3 +221,13 @@ export function SimTaskView({ task, value, onChange, lang }: { task: PlayerTask;
     </>
   );
 }
+
+// Recruiter side: the task exactly as the candidate saw it, with their
+// answer filled in. Inert, so nothing can be tapped or changed.
+export function SimTaskReplay({ task, value }: { task: PlayerTask; value: Answer | undefined }) {
+  return (
+    <div inert className="flex flex-col gap-4">
+      <SimTaskView task={task} value={value} onChange={() => {}} lang="en" />
+    </div>
+  );
+}

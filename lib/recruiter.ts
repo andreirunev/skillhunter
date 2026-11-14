@@ -3,7 +3,9 @@ import { db } from "./db.ts";
 import { isUuid } from "./data.ts";
 import { makeInviteCode, PRINTED_CODE_DAYS } from "./codes.ts";
 import type { FlagCode } from "./flags.ts";
-import type { Answer, AnswerKey, Skill, TaskPayload, TaskType } from "./tasks.ts";
+import type { Answer } from "./tasks.ts";
+import type { SimTask } from "./sim.ts";
+import { attemptTasks, DEFAULT_TIME_LIMIT } from "./sim-store.ts";
 import type { Lang } from "./i18n.ts";
 import type { TicketTemplate } from "./tickets.ts";
 import { isInviteCode, normalizeInviteCode, type Contact, type RecruiterStage, type Stage } from "./stage.ts";
@@ -16,15 +18,25 @@ export const STATUSES = ["new", "invited", "at_booth", "good_fit", "needs_review
 export type Status = (typeof STATUSES)[number];
 export const isStatus = (x: unknown): x is Status => typeof x === "string" && (STATUSES as readonly string[]).includes(x);
 
-export type Company = { id: string; slug: string; name: string; sector: string; booth: string; color: string; ticket: unknown; test_id: string; test_title: string; task_count: number; expected_sec: number };
+// task_count / expected_sec / time_limit_minutes describe what a new
+// candidate gets: the live published version, else the older task list.
+export type Company = {
+  id: string; slug: string; name: string; sector: string; booth: string; color: string; ticket: unknown;
+  test_id: string; test_title: string; task_count: number; expected_sec: number;
+  live_version: number; time_limit_minutes: number;
+};
 
 // Cached per request: the recruiter layout and its page both read it.
 export const getCompany = cache(async (slug: string): Promise<Company | null> => {
   const [row] = await db()<Company[]>`
-    SELECT c.id, c.slug, c.name, c.sector, c.booth, c.color, c.ticket, t.id AS test_id, t.title AS test_title,
-      (SELECT count(*)::int FROM test_tasks WHERE test_id = t.id) AS task_count,
-      (SELECT coalesce(sum(expected_sec), 0)::int FROM test_tasks WHERE test_id = t.id) AS expected_sec
+    SELECT c.id, c.slug, c.name, c.sector, c.booth, c.color, c.ticket, c.live_version, t.id AS test_id,
+      coalesce(ct.title, t.title) AS test_title,
+      coalesce(jsonb_array_length(ct.tasks), (SELECT count(*)::int FROM test_tasks WHERE test_id = t.id)) AS task_count,
+      coalesce((SELECT sum((x->>'expected_seconds')::int)::int FROM jsonb_array_elements(ct.tasks) x),
+        (SELECT coalesce(sum(expected_sec), 0)::int FROM test_tasks WHERE test_id = t.id)) AS expected_sec,
+      coalesce(ct.time_limit_minutes, ${DEFAULT_TIME_LIMIT}) AS time_limit_minutes
     FROM companies c JOIN tests t ON t.company_id = c.id
+    LEFT JOIN company_tests ct ON ct.company_id = c.id AND ct.version = c.live_version
     WHERE c.slug = ${slug} LIMIT 1`;
   return row ?? null;
 });
@@ -39,6 +51,7 @@ export type CandidateRow = {
   started_at: Date;
   finished_at: Date | null;
   answered: number;
+  task_count: number; // of the version this candidate got
   total_ms: number; // finished_at - started_at, server timestamps (0 while in progress)
   limit_reached: boolean; // closed at the deadline
   invited: boolean; // has an interview code (the code itself never reaches the recruiter)
@@ -57,6 +70,8 @@ export async function listCandidates(testId: string): Promise<CandidateRow[]> {
     SELECT a.id, a.avatar_name, a.avatar_emoji, a.avatar_color, a.lang, a.status,
       a.started_at, a.finished_at,
       (SELECT count(*)::int FROM answers WHERE attempt_id = a.id) AS answered,
+      coalesce((SELECT jsonb_array_length(tasks) FROM company_tests WHERE id = a.company_test_id),
+        (SELECT count(*)::int FROM test_tasks WHERE test_id = a.test_id)) AS task_count,
       coalesce(extract(epoch from (a.finished_at - a.started_at)) * 1000, 0)::int AS total_ms,
       coalesce(a.finished_at >= a.started_at + make_interval(mins => a.time_limit_minutes), false) AS limit_reached,
       i.attempt_id IS NOT NULL AS invited,
@@ -67,15 +82,9 @@ export async function listCandidates(testId: string): Promise<CandidateRow[]> {
   return [...rows];
 }
 
-export type DetailTask = {
-  id: string;
-  position: number;
-  type: TaskType;
-  payload: TaskPayload;
-  answer_key: AnswerKey;
-  expected_sec: number;
-  skill: Skill;
-  follow_ups: string[];
+// A task of the attempt's own version (snapshot or older list) with the
+// candidate's answer and the recruiter's note.
+export type DetailTask = SimTask & {
   answered: boolean;
   answer: Answer;
   matches_key: boolean | null;
@@ -90,7 +99,7 @@ export async function getCandidate(testId: string, attemptId: string) {
   if (!isUuid(attemptId)) return null;
   await closeExpiredForTest(testId);
   const sql = db();
-  const [attempt] = await sql<(Omit<CandidateRow, "answered"> & { time_limit_minutes: number })[]>`
+  const [attempt] = await sql<(Omit<CandidateRow, "answered" | "task_count"> & { time_limit_minutes: number })[]>`
     SELECT a.id, a.avatar_name, a.avatar_emoji, a.avatar_color, a.lang, a.status, a.time_limit_minutes,
       a.started_at, a.finished_at,
       coalesce(extract(epoch from (a.finished_at - a.started_at)) * 1000, 0)::int AS total_ms,
@@ -100,17 +109,29 @@ export async function getCandidate(testId: string, attemptId: string) {
     FROM attempts a LEFT JOIN invitations i ON i.attempt_id = a.id
     WHERE a.id = ${attemptId}::uuid AND a.test_id = ${testId}::uuid`;
   if (!attempt) return null;
-  const tasks = await sql<DetailTask[]>`
-    SELECT tt.id, tt.position, tt.type, tt.payload, tt.answer_key, tt.expected_sec, tt.skill, tt.follow_ups,
-      an.task_id IS NOT NULL AS answered, an.answer, an.matches_key, an.time_ms, an.changes,
-      coalesce(an.flags, '[]'::jsonb) AS flags,
-      coalesce(rn.asked, false) AS asked, coalesce(rn.note, '') AS note
-    FROM test_tasks tt
-    LEFT JOIN answers an ON an.task_id = tt.id AND an.attempt_id = ${attemptId}::uuid
-    LEFT JOIN recruiter_notes rn ON rn.task_id = tt.id AND rn.attempt_id = ${attemptId}::uuid
-    WHERE tt.test_id = ${testId}::uuid
-    ORDER BY tt.position`;
-  return { attempt, tasks: [...tasks] };
+  type AnswerRow = { task_id: string; answer: Answer; matches_key: boolean; time_ms: number; changes: number; flags: FlagCode[] };
+  type NoteRow = { task_id: string; asked: boolean; note: string };
+  const [tasks, answers, notes] = await Promise.all([
+    attemptTasks(attemptId),
+    sql<AnswerRow[]>`SELECT task_id, answer, matches_key, time_ms, changes, flags FROM answers WHERE attempt_id = ${attemptId}::uuid`,
+    sql<NoteRow[]>`SELECT task_id, asked, note FROM recruiter_notes WHERE attempt_id = ${attemptId}::uuid`,
+  ]);
+  const detail: DetailTask[] = (tasks ?? []).map((t) => {
+    const an = answers.find((r) => r.task_id === t.id);
+    const rn = notes.find((r) => r.task_id === t.id);
+    return {
+      ...t,
+      answered: Boolean(an),
+      answer: an ? an.answer : null,
+      matches_key: an ? an.matches_key : null,
+      time_ms: an ? an.time_ms : null,
+      changes: an ? an.changes : null,
+      flags: an?.flags ?? [],
+      asked: rn?.asked ?? false,
+      note: rn?.note ?? "",
+    };
+  });
+  return { attempt, tasks: detail };
 }
 
 // A human decision. "invited" also creates the interview code, which only the
