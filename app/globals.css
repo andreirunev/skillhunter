@@ -76,7 +76,7 @@
   }
 }
 
-/* Dark skin utilities: bg-bg, text-fg, text-muted, bg-card, border-border,
+/* Skin utilities: bg-bg, text-fg, text-muted, bg-card, border-border,
    text-ok/warn/bad/info, rounded-card/btn/tile/pill, animate-fade. */
 @theme inline {
   --color-bg: var(--bg);
@@ -100,10 +100,34 @@
   }
 }
 
-/* Design tokens (dark). Scoped to [data-skin="dark"] (the recruiter area) so
-   the light candidate pages and the home page keep their look. --card,
-   --border, --muted and --accent shadow the shadcn names inside the scope. */
-[data-skin="dark"] {
+/* Design tokens for the skinned pages (recruiter + candidate), scoped to
+   [data-skin] so the home page keeps its look. Light is the base set; dark
+   applies when <html data-theme="dark"> (set before first paint from
+   localStorage or the system preference). --card, --border, --muted and
+   --accent shadow the shadcn names inside the scope. */
+[data-skin] {
+  --bg: #f4f4f5;
+  --card: #ffffff;
+  --border: #e4e4e7;
+  --text: #0b0b0c;
+  --muted: #6b6b73;
+  --accent: #0b0b0c;
+  --ok: #15803d;
+  --ok-dark: #166534;
+  --warn: #b45309;
+  --bad: #dc2626;
+  --info: #2563eb;
+  --track: #e4e4e7;
+  /* Bottom tab bar: h-14 + 1px border + iPhone home indicator. Desktop has a
+     left rail instead, so fixed bars sit at the bottom and right of it. */
+  --tabbar: calc(3.5rem + 1px + env(safe-area-inset-bottom));
+  --rail: 0px;
+  color-scheme: light;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+[data-theme="dark"] [data-skin] {
   --bg: #0b0b0c;
   --card: #161618;
   --border: #232326;
@@ -116,26 +140,22 @@
   --bad: #ef4444;
   --info: #60a5fa;
   --track: #1f1f22;
-  /* Bottom tab bar: h-14 + 1px border + iPhone home indicator. Desktop has a
-     left rail instead, so fixed bars sit at the bottom and right of it. */
-  --tabbar: calc(3.5rem + 1px + env(safe-area-inset-bottom));
-  --rail: 0px;
   color-scheme: dark;
-  background: var(--bg);
-  color: var(--text);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
 @media (min-width: 1024px) {
-  [data-skin="dark"] {
+  [data-skin] {
     --tabbar: 0px;
     --rail: 15rem;
   }
 }
-/* Overscroll and scrollbars match the skin (same value as --bg). */
-html:has([data-skin="dark"]) {
+/* Overscroll and scrollbars match the skin (same values as --bg). */
+body:has([data-skin]) {
+  background: #f4f4f5;
+}
+html[data-theme="dark"]:has([data-skin]) {
   color-scheme: dark;
 }
-body:has([data-skin="dark"]) {
+html[data-theme="dark"] body:has([data-skin]) {
   background: #0b0b0c;
 }
 
@@ -175,7 +195,7 @@ a[role="button"],
     @apply border-slate-400 bg-white text-slate-900 active:bg-slate-100;
   }
 
-  /* Dark skin buttons: 44px touch height, 10px corners. */
+  /* Skin buttons: 44px touch height, 10px corners. */
   .ui-btn {
     @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-btn border px-4 text-center text-sm font-semibold leading-tight disabled:opacity-50;
   }
