@@ -1,6 +1,7 @@
 // npm run db:init  -> create tables (CREATE TABLE IF NOT EXISTS)
-// npm run db:seed  -> upsert the demo companies (re-runnable)
-// Both read DATABASE_URL from .env.local via node --env-file.
+// npm run db:seed  -> demo companies, tests, tasks, candidates (re-runnable)
+// npm run db:reseed -> wipe the demo tests (tasks + event data) and seed again
+// All read DATABASE_URL from .env.local via node --env-file.
 import { db, SCHEMA } from "../lib/db.ts";
 import { seed } from "../lib/seed.ts";
 
@@ -28,15 +29,18 @@ try {
         WHERE table_schema = 'public' ORDER BY table_name`;
       console.log(`db:init ok. Tables: ${tables.map((t) => t.name).join(", ")}`);
     } else if (command === "seed") {
-      await seed(sql);
-      const rows = await sql<{ slug: string; sector: string; tests: number }[]>`
-        SELECT c.slug, c.sector, count(t.id)::int AS tests
+      const fresh = process.argv.includes("--fresh");
+      await seed(sql, { fresh });
+      const rows = await sql<{ slug: string; sector: string; tests: number; tasks: number; candidates: number }[]>`
+        SELECT c.slug, c.sector, count(DISTINCT t.id)::int AS tests,
+          (SELECT count(*)::int FROM test_tasks tt JOIN tests t2 ON t2.id = tt.test_id WHERE t2.company_id = c.id) AS tasks,
+          (SELECT count(*)::int FROM attempts a JOIN tests t3 ON t3.id = a.test_id WHERE t3.company_id = c.id) AS candidates
         FROM companies c LEFT JOIN tests t ON t.company_id = c.id
-        GROUP BY c.slug, c.sector ORDER BY c.slug`;
-      console.log(`db:seed ok. ${rows.length} companies:`);
-      for (const r of rows) console.log(`  ${r.slug} (${r.sector}), tests: ${r.tests}`);
+        GROUP BY c.id, c.slug, c.sector ORDER BY c.slug`;
+      console.log(`db:seed${fresh ? " --fresh" : ""} ok. ${rows.length} companies:`);
+      for (const r of rows) console.log(`  ${r.slug} (${r.sector}), tests: ${r.tests}, tasks: ${r.tasks}, candidates: ${r.candidates}`);
     } else {
-      console.error("Usage: node --env-file=.env.local scripts/db.ts init|seed");
+      console.error("Usage: node --env-file=.env.local scripts/db.ts init|seed [--fresh]");
       process.exitCode = 1;
     }
   } finally {

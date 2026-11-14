@@ -40,13 +40,17 @@ CREATE TABLE IF NOT EXISTS attempts (
   avatar_name  text NOT NULL,
   avatar_emoji text NOT NULL,
   avatar_color text NOT NULL,
-  lang         text NOT NULL DEFAULT 'en' CHECK (lang IN ('en', 'fi', 'ru')),
+  lang         text NOT NULL DEFAULT 'en',
   own_pace     boolean NOT NULL DEFAULT false,
   started_at   timestamptz NOT NULL DEFAULT now(),
   finished_at  timestamptz,
   status       text NOT NULL DEFAULT 'new' CHECK (status IN
     ('new', 'invited', 'at_booth', 'good_fit', 'needs_review', 'interview', 'not_now'))
 );
+
+-- UI languages: English, Finnish, Swedish. Re-created so re-running updates it.
+ALTER TABLE attempts DROP CONSTRAINT IF EXISTS attempts_lang_check;
+ALTER TABLE attempts ADD CONSTRAINT attempts_lang_check CHECK (lang IN ('en', 'fi', 'sv'));
 
 CREATE TABLE IF NOT EXISTS qr_tokens (
   token      text PRIMARY KEY,
@@ -59,13 +63,15 @@ CREATE TABLE IF NOT EXISTS qr_tokens (
 CREATE TABLE IF NOT EXISTS answers (
   attempt_id  uuid NOT NULL REFERENCES attempts(id) ON DELETE CASCADE,
   task_id     uuid NOT NULL REFERENCES test_tasks(id) ON DELETE CASCADE,
-  answer      jsonb NOT NULL,
+  answer      jsonb, -- NULL = skipped
   matches_key boolean NOT NULL,
   time_ms     integer NOT NULL,
   changes     integer NOT NULL DEFAULT 0,
   flags       jsonb NOT NULL DEFAULT '[]',
   PRIMARY KEY (attempt_id, task_id)
 );
+
+ALTER TABLE answers ALTER COLUMN answer DROP NOT NULL;
 
 CREATE TABLE IF NOT EXISTS invitations (
   attempt_id uuid PRIMARY KEY REFERENCES attempts(id) ON DELETE CASCADE,
