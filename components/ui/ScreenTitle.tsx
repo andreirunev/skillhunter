@@ -16,6 +16,7 @@ export function ScreenTitle({ title, help }: { title: string; help?: { href: str
 }
 
 // Small caps grey label above a list, e.g. "Needs your call" <Sep /> "3".
-export function SectionLabel({ children }: { children: ReactNode }) {
-  return <h2 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted">{children}</h2>;
+// `as="p"` for an eyebrow above a page's h1.
+export function SectionLabel({ children, as: Tag = "h2" }: { children: ReactNode; as?: "h2" | "p" }) {
+  return <Tag className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted">{children}</Tag>;
 }

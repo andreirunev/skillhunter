@@ -1,39 +1,21 @@
-import Link from "next/link";
+import type { Metadata, Viewport } from "next";
+import { HOME } from "@/lib/i18n-home";
+import { cookieLang } from "@/lib/lang";
+import { SKIN_THEME_COLOR } from "@/lib/theme";
+import { Landing } from "./Landing";
 
-// Demo launcher: one door for candidates, one for recruiters.
-export default function Home() {
-  return (
-    <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center gap-3 px-4 py-12">
-      <div className="mb-3">
-        <h1 className="text-3xl font-bold tracking-tight">SkillScan</h1>
-        <p className="mt-1 text-slate-600">Show your skills, not your CV.</p>
-      </div>
+export const dynamic = "force-dynamic";
 
-      <div className="flex flex-col gap-3">
-        <Link
-          href="/join"
-          className="tap flex min-h-16 items-center gap-3 border border-slate-900 bg-slate-900 px-4 text-white active:bg-slate-700"
-        >
-          <span className="flex-1">
-            <span className="block text-lg font-bold">I&apos;m a candidate</span>
-            <span className="block text-sm text-white/80">Enter the code from the booth</span>
-          </span>
-          <span className="text-xl text-white/70" aria-hidden>›</span>
-        </Link>
+export const viewport: Viewport = { themeColor: SKIN_THEME_COLOR };
 
-        <Link
-          href="/r"
-          className="tap flex min-h-16 items-center gap-3 border border-slate-400 bg-white px-4 active:bg-slate-100"
-        >
-          <span className="flex-1">
-            <span className="block text-lg font-bold">I&apos;m a recruiter</span>
-            <span className="block text-sm text-slate-500">Enter your company PIN</span>
-          </span>
-          <span className="text-xl text-slate-400" aria-hidden>›</span>
-        </Link>
-      </div>
+export async function generateMetadata(): Promise<Metadata> {
+  const m = HOME[(await cookieLang()) ?? "en"];
+  return { title: m.metaTitle, description: m.metaDescription };
+}
 
-      <p className="mt-3 text-xs text-slate-500">Demo with synthetic data only. No CVs, no contact data, no scores.</p>
-    </main>
-  );
+// Landing page for Espoo recruitment events: candidate door -> /join,
+// recruiter door -> /r. The language comes from the same cookie as the
+// candidate screens.
+export default async function Home() {
+  return <Landing lang={(await cookieLang()) ?? "en"} />;
 }
