@@ -1,9 +1,14 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Check } from "lucide-react";
+import { KindChip } from "@/components/GuideParts";
+import { RecruiterLang } from "@/components/RecruiterLang";
 import { SectionLabel, ScreenTitle } from "@/components/ui/ScreenTitle";
 import { joinSep } from "@/components/ui/Sep";
+import { bt } from "@/lib/i18n-builder";
+import { cookieLang } from "@/lib/lang";
 import { getCompany, isDemoMode } from "@/lib/recruiter";
+import { getLiveTest } from "@/lib/sim-store";
 import { ResetDemo } from "./ResetDemo";
 
 export const dynamic = "force-dynamic";
@@ -19,7 +24,7 @@ const STEPS = [
 const PRINCIPLES = [
   "Humans decide.",
   "No scores.",
-  "No contact data stored.",
+  "Contacts only with consent.",
   "Data deleted after the event.",
 ];
 
@@ -28,10 +33,14 @@ export default async function AboutPage(props: PageProps<"/r/[slug]/about">) {
   const { slug } = await props.params;
   const company = await getCompany(slug);
   if (!company) notFound();
+  const [live, lang] = await Promise.all([getLiveTest(company.id), cookieLang().then((l) => l ?? "en")]);
 
   return (
     <div className="flex flex-col gap-4 pt-2">
-      <ScreenTitle title="About" />
+      <div className="flex items-end justify-between gap-3">
+        <ScreenTitle title="About" />
+        <RecruiterLang value={lang} label={bt(lang, "language")} />
+      </div>
 
       <section className="rounded-card border border-border bg-card p-4">
         <p className="font-semibold">{company.test_title}</p>
@@ -39,7 +48,31 @@ export default async function AboutPage(props: PageProps<"/r/[slug]/about">) {
           {joinSep([`${company.task_count} tasks`, `≈ ${Math.max(1, Math.round(company.expected_sec / 60))} min`, `limit ${company.time_limit_minutes} min`])}
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
+          <Link href={`/r/${slug}/build`} className="ui-btn ui-btn-primary">{bt(lang, "buildTest")}</Link>
           <Link href={`/r/${slug}/guide`} className="ui-btn ui-btn-secondary">Interview guide</Link>
+        </div>
+      </section>
+
+      {/* What fair organisers would see before the event. */}
+      <section className="flex flex-col gap-3">
+        <SectionLabel>{bt(lang, "needsTitle")}</SectionLabel>
+        <div className="border border-border bg-card p-4">
+          <p className="text-[13px] text-muted">{bt(lang, "needsHint")}</p>
+          {live ? (
+            <ol className="mt-3 flex flex-col gap-2.5">
+              {live.tasks.map((t, i) => (
+                <li key={t.id} className="flex gap-3 text-sm">
+                  <span className="flex size-6 shrink-0 items-center justify-center bg-fg/10 text-xs font-bold tabular-nums">{i + 1}</span>
+                  <span className="min-w-0">
+                    <span className="block font-semibold">{t.duty}</span>
+                    <span className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[13px] text-muted">{t.skill_tag}<KindChip kind={t.skill_kind} /></span>
+                  </span>
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <p className="mt-3 text-sm font-semibold">{bt(lang, "needsNone")}</p>
+          )}
         </div>
       </section>
 
@@ -65,6 +98,7 @@ export default async function AboutPage(props: PageProps<"/r/[slug]/about">) {
           ))}
         </ul>
         <p className="text-[13px] text-muted">No IP addresses or location. This demo uses synthetic data only.</p>
+        <p className="text-[13px] text-muted">{bt(lang, "authLine")}</p>
       </section>
 
       {isDemoMode() && <ResetDemo />}

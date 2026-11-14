@@ -1,0 +1,24 @@
+"use server";
+
+import { refresh } from "next/cache";
+import { db } from "@/lib/db";
+import { getCompany } from "@/lib/recruiter";
+import { publishTest, type Draft } from "@/lib/sim-store";
+
+export type PublishResult = { ok: true; version: number } | { ok: false; error: string };
+
+// Publish from the builder: validates the draft against the task library and
+// stores a new frozen version (lib/sim-store.ts). Demo access as everywhere
+// in /r/[slug]: by company slug, no staff login.
+export async function publishDraft(slug: string, draft: Draft): Promise<PublishResult> {
+  const company = await getCompany(String(slug));
+  if (!company) return { ok: false, error: "failed" };
+  try {
+    const result = await publishTest(db(), company.id, draft);
+    if ("error" in result) return { ok: false, error: result.error };
+    refresh();
+    return { ok: true, version: result.version };
+  } catch {
+    return { ok: false, error: "failed" };
+  }
+}

@@ -1,11 +1,13 @@
 import type { Viewport } from "next";
 import Link from "next/link";
-import { KeyRound } from "lucide-react";
+import { ClipboardList, KeyRound } from "lucide-react";
 import { notFound } from "next/navigation";
 import { BottomTabs } from "@/components/ui/BottomTabs";
 import { joinSep } from "@/components/ui/Sep";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { Toast } from "@/components/ui/Toast";
+import { bt } from "@/lib/i18n-builder";
+import { cookieLang } from "@/lib/lang";
 import { getCompany } from "@/lib/recruiter";
 import { SKIN_THEME_COLOR } from "@/lib/theme";
 
@@ -19,6 +21,7 @@ export default async function RecruiterLayout({ children, params }: LayoutProps<
   const { slug } = await params;
   const company = await getCompany(slug);
   if (!company) notFound();
+  const buildLabel = bt((await cookieLang()) ?? "en", "buildTest");
 
   return (
     <div data-skin className="flex min-h-dvh flex-1 flex-col lg:pl-(--rail)">
@@ -28,6 +31,10 @@ export default async function RecruiterLayout({ children, params }: LayoutProps<
             {joinSep([company.name, `Booth ${company.booth}`])}
           </p>
           <div className="flex shrink-0 items-center gap-1.5">
+            <Link href={`/r/${slug}/build`} aria-label={buildLabel} title={buildLabel}
+              className="tap inline-flex size-9 items-center justify-center rounded-pill bg-track text-muted">
+              <ClipboardList className="size-4" aria-hidden />
+            </Link>
             <Link href={`/r/${slug}?find=1`} aria-label="Find by code" title="Find by code"
               className="tap inline-flex size-9 items-center justify-center rounded-pill bg-track text-muted">
               <KeyRound className="size-4" aria-hidden />
