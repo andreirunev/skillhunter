@@ -10,13 +10,13 @@ export type Format = (typeof FORMATS)[number];
 export const isFormat = (x: unknown): x is Format => typeof x === "string" && (FORMATS as readonly string[]).includes(x);
 
 export const FORMAT_LABELS: Record<Format, string> = {
-  triage: "Triage",
-  spot_error: "Spot the error",
-  next_step: "Next step",
-  apply_rule: "Apply the rule",
-  read_decide: "Read and decide",
-  handover: "Handover note",
-  quick_logic: "Quick logic",
+  triage: "Put in order",
+  spot_error: "Find the mistake",
+  next_step: "What to do next",
+  apply_rule: "Follow the rule",
+  read_decide: "Read the numbers",
+  handover: "Pick the best note",
+  quick_logic: "Puzzle",
 };
 
 // exact = one right answer; typical = what most experienced people pick (a

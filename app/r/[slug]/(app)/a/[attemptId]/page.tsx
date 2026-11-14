@@ -20,7 +20,7 @@ export default async function CandidatePage(props: PageProps<"/r/[slug]/a/[attem
   const { slug, attemptId } = await props.params;
   const company = await getCompany(slug);
   if (!company) notFound();
-  const data = await getCandidate(company.test_id, attemptId);
+  const data = await getCandidate(company.id, attemptId);
   if (!data) notFound();
   const { attempt, tasks } = data;
 

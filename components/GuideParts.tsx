@@ -1,8 +1,8 @@
 import { Ear, Info } from "lucide-react";
 import { FORMAT_LABELS, type SimTask } from "@/lib/sim";
 
-// Pieces of the interview guide, shared by the candidate card and the
-// printable booth sheet. Soft skills are a signal for conversation only.
+// Pieces of the per-task interview guide on the candidate card. Soft skills
+// are a signal for conversation only.
 
 const LABEL = "text-[11px] font-semibold uppercase tracking-[0.08em] text-muted";
 

@@ -22,7 +22,7 @@ export default async function RecruiterLayout({ children, params }: LayoutProps<
   const company = await getCompany(slug);
   if (!company) notFound();
   const lang = (await cookieLang()) ?? "en";
-  const editLabel = bt(lang, "editContest");
+  const contestsLabel = bt(lang, "contests");
 
   return (
     <div data-skin className="flex min-h-dvh flex-1 flex-col lg:pl-(--rail)">
@@ -32,7 +32,7 @@ export default async function RecruiterLayout({ children, params }: LayoutProps<
             {joinSep([company.name, `Booth ${company.booth}`])}
           </p>
           <div className="flex shrink-0 items-center gap-1.5">
-            <Link href={`/r/${slug}/build`} aria-label={editLabel} title={editLabel}
+            <Link href={`/r/${slug}/contests`} aria-label={contestsLabel} title={contestsLabel}
               className="tap inline-flex size-9 items-center justify-center rounded-pill bg-track text-muted">
               <ClipboardList className="size-4" aria-hidden />
             </Link>
@@ -45,7 +45,7 @@ export default async function RecruiterLayout({ children, params }: LayoutProps<
         </div>
         {children}
       </div>
-      <BottomTabs slug={slug} contestsLabel={bt(lang, "contests")} />
+      <BottomTabs slug={slug} contestsLabel={contestsLabel} />
       <Toast />
     </div>
   );

@@ -5,12 +5,12 @@ import { usePathname } from "next/navigation";
 import { ChartColumn, ClipboardList, QrCode, Users, type LucideIcon } from "lucide-react";
 
 // `also`: sub-screens that keep the tab active (the ticket template editor,
-// the contest builder).
+// the contest builder, the template library).
 const TABS: { path: string; label: string; icon: LucideIcon; also?: string[] }[] = [
   { path: "", label: "Candidates", icon: Users },
   { path: "/codes", label: "Booth codes", icon: QrCode, also: ["/tickets"] },
   { path: "/stats", label: "Stats", icon: ChartColumn },
-  { path: "/contests", label: "Contests", icon: ClipboardList, also: ["/build"] },
+  { path: "/contests", label: "Contests", icon: ClipboardList, also: ["/build", "/templates"] },
 ];
 
 // Fixed bottom tab bar on phones; a left rail from 1024px. Candidate detail

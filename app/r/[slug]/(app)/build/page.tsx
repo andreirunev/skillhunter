@@ -1,21 +1,29 @@
 import { notFound } from "next/navigation";
 import { cookieLang } from "@/lib/lang";
 import { getCompany } from "@/lib/recruiter";
-import { getLiveTest, listLibrary, listTemplates } from "@/lib/sim-store";
+import { getLiveTest, listContests, listLibrary, listTemplates } from "@/lib/sim-store";
 import { Builder, type DraftStart, type LiveDraft } from "./Builder";
 
 export const dynamic = "force-dynamic";
 
-// Contest builder: one screen with the task list. Opens on the live version;
-// with none, starts empty or from a role template. From the Contests tab,
-// ?template=<slug> or ?new=1 start a new draft (confirmed when one is live).
+// Contest builder: one screen with the task list.
+// ?contest=<id> edits that contest (opens on its live version).
+// ?template=<slug> or ?new=1 start a new contest, created on the first Save.
+// No parameter (older links): the company's first contest.
 export default async function BuildPage(props: PageProps<"/r/[slug]/build">) {
   const [{ slug }, sp] = await Promise.all([props.params, props.searchParams]);
   const company = await getCompany(slug);
   if (!company) notFound();
-  const [templates, library, live, lang] = await Promise.all([
-    listTemplates(), listLibrary(), getLiveTest(company.id), cookieLang(),
+  const [templates, library, contests, lang] = await Promise.all([
+    listTemplates(), listLibrary(), listContests(company.id), cookieLang(),
   ]);
+  const template = templates.find((t) => t.slug === sp.template) ?? null;
+  const isNew = Boolean(template) || sp.new === "1" || contests.length === 0;
+  const contest = isNew ? null
+    : typeof sp.contest === "string" ? contests.find((c) => c.id === sp.contest) : contests[0];
+  if (contest === undefined) notFound();
+
+  const live = contest ? await getLiveTest(contest.id) : null;
   const liveDraft: LiveDraft | null = live && {
     version: live.version,
     title: live.title,
@@ -24,7 +32,9 @@ export default async function BuildPage(props: PageProps<"/r/[slug]/build">) {
     englishRequired: live.english_required,
     duties: live.tasks.map((t) => ({ title: t.duty, libraryId: t.library_id, followups: t.followups, good: t.good_looks_like, key: t.key })),
   };
-  const template = templates.find((t) => t.slug === sp.template) ?? null;
-  const start: DraftStart | null = template ? { template } : sp.new === "1" ? { template: null } : null;
-  return <Builder slug={slug} companyName={company.name} lang={lang ?? "en"} templates={templates} library={library} live={liveDraft} start={start} />;
+  const start: DraftStart | null = isNew ? { template } : null;
+  return (
+    <Builder slug={slug} companyName={company.name} lang={lang ?? "en"}
+      templates={templates} library={library} contestId={contest?.id ?? null} live={liveDraft} start={start} />
+  );
 }

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import QRCode from "qrcode";
 import { Ticket } from "@/components/Ticket";
 import { getCompany, listBatch } from "@/lib/recruiter";
+import { listContests } from "@/lib/sim-store";
 import { defaultTicket, mergeTicket, TICKETS_PER_SHEET } from "@/lib/tickets";
 import { PrintBar } from "./PrintBar";
 
@@ -26,10 +27,14 @@ export default async function PrintPage(props: PageProps<"/r/[slug]/print/[batch
   const { auto } = await props.searchParams;
   const company = await getCompany(slug);
   if (!company) notFound();
-  const codes = await listBatch(company.test_id, batchId);
-  if (!codes) notFound();
+  const batch = await listBatch(company.id, batchId);
+  if (!batch) notFound();
+  const { codes } = batch;
+  // Task count and default duration of the batch's own contest.
+  const contest = (await listContests(company.id)).find((c) => c.id === batch.testId);
+  const taskCount = contest?.task_count ?? company.task_count;
 
-  const template = mergeTicket(company.ticket, defaultTicket(company));
+  const template = mergeTicket(company.ticket, defaultTicket({ ...company, expected_sec: contest?.expected_sec ?? company.expected_sec }));
   const origin = await siteOrigin();
   const free = codes.filter((c) => !c.taken).map((c) => c.code);
   const tickets = await Promise.all(free.map(async (code) => {
@@ -50,7 +55,7 @@ export default async function PrintPage(props: PageProps<"/r/[slug]/print/[batch
           <CutMarks />
           <div className="pv-grid">
             {sheet.map((t) => (
-              <Ticket key={t.code} template={template} tasks={company.task_count} code={t.code} url={t.url} qrSvg={t.qrSvg} />
+              <Ticket key={t.code} template={template} tasks={taskCount} code={t.code} url={t.url} qrSvg={t.qrSvg} />
             ))}
           </div>
           {sheets.length > 1 && <p className="pv-sheet-no">Sheet {i + 1} of {sheets.length}</p>}

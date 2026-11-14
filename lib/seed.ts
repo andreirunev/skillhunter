@@ -108,7 +108,8 @@ function sampleAnswer(task: SimTask, same: boolean, rand: () => number): Answer 
 // Safe to re-run: companies, the task library and role templates are
 // upserted; a test gets tasks and candidates only when it has none. A company
 // with a role is published from its template once (live_version 0 -> 1).
-// `fresh` first wipes the demo tests' tasks, published versions and event data.
+// `fresh` first wipes the demo contests' tasks, published versions and event
+// data, and removes contests added in the builder (one contest per company).
 export async function seed(sql: postgres.Sql, { fresh = false } = {}) {
   await seedLibrary(sql);
   const templates = await listTemplates(sql);
@@ -124,15 +125,16 @@ export async function seed(sql: postgres.Sql, { fresh = false } = {}) {
       INSERT INTO tests (company_id, title)
       SELECT ${company.id}::uuid, ${c.test}
       WHERE NOT EXISTS (SELECT 1 FROM tests WHERE company_id = ${company.id}::uuid)`;
-    const [test] = await sql<{ id: string }[]>`SELECT id FROM tests WHERE company_id = ${company.id}::uuid LIMIT 1`;
+    const [test] = await sql<{ id: string }[]>`
+      SELECT id FROM tests WHERE company_id = ${company.id}::uuid ORDER BY created_at, id LIMIT 1`;
 
     if (fresh) {
+      await sql`DELETE FROM tests WHERE company_id = ${company.id}::uuid AND id <> ${test.id}::uuid`;
       await sql`DELETE FROM attempts WHERE test_id = ${test.id}::uuid`;
       await sql`DELETE FROM qr_tokens WHERE test_id = ${test.id}::uuid`;
       await sql`DELETE FROM test_tasks WHERE test_id = ${test.id}::uuid`;
       await sql`DELETE FROM company_tests WHERE company_id = ${company.id}::uuid`;
-      await sql`UPDATE companies SET live_version = 0 WHERE id = ${company.id}::uuid`;
-      await sql`UPDATE tests SET title = ${c.test} WHERE id = ${test.id}::uuid`;
+      await sql`UPDATE tests SET title = ${c.test}, live_version = 0 WHERE id = ${test.id}::uuid`;
     }
 
     // Older task list (kept for every company; the fallback before publishing).
@@ -160,9 +162,9 @@ export async function seed(sql: postgres.Sql, { fresh = false } = {}) {
     // Job simulation from the role template, published once.
     const template = templates.find((t) => t.slug === c.role);
     if (template) {
-      const [{ live_version }] = await sql<{ live_version: number }[]>`SELECT live_version FROM companies WHERE id = ${company.id}::uuid`;
+      const [{ live_version }] = await sql<{ live_version: number }[]>`SELECT live_version FROM tests WHERE id = ${test.id}::uuid`;
       if (live_version === 0) {
-        await publishTest(sql, company.id, {
+        await publishTest(sql, company.id, test.id, {
           roleSlug: template.slug,
           title: `${template.name}: job simulation`,
           timeLimit: DEFAULT_TIME_LIMIT,
@@ -187,9 +189,9 @@ export async function seed(sql: postgres.Sql, { fresh = false } = {}) {
     const [{ n }] = await sql<{ n: number }[]>`SELECT count(*)::int AS n FROM attempts WHERE test_id = ${test.id}::uuid`;
     if (n > 0) continue;
     const [live] = await sql<{ id: string; tasks: SimTask[]; time_limit_minutes: number }[]>`
-      SELECT ct.id, ct.tasks, ct.time_limit_minutes FROM companies co
-      JOIN company_tests ct ON ct.company_id = co.id AND ct.version = co.live_version
-      WHERE co.id = ${company.id}::uuid`;
+      SELECT ct.id, ct.tasks, ct.time_limit_minutes FROM tests t
+      JOIN company_tests ct ON ct.test_id = t.id AND ct.version = t.live_version
+      WHERE t.id = ${test.id}::uuid`;
     const tasks = live ? live.tasks : await legacyTasks(test.id, sql);
     if (!live && tasks.length !== defs.length) continue;
 

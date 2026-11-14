@@ -10,8 +10,9 @@ import { TICKET_FIELDS, TICKET_LIMITS, TICKETS_PER_SHEET, type TicketTemplate } 
 
 export type CodesState = { error: string; created: number; batch: string | null };
 
-// "Create and print": new single-use booth codes for this company's test,
-// rounded up to full A4 sheets of 10. Returns the batch for the print view.
+// "Create and print": new single-use booth codes for one of this company's
+// contests, rounded up to full A4 sheets of 10. Returns the batch for the
+// print view.
 export async function createCodes(_prev: CodesState, formData: FormData): Promise<CodesState> {
   const slug = String(formData.get("slug") ?? "");
   const asked = Number(formData.get("count"));
@@ -19,7 +20,9 @@ export async function createCodes(_prev: CodesState, formData: FormData): Promis
     return { error: `Choose 1 to ${MAX_CODES_PER_BATCH} tickets.`, created: 0, batch: null };
   }
   const count = Math.min(MAX_CODES_PER_BATCH, Math.ceil(asked / TICKETS_PER_SHEET) * TICKETS_PER_SHEET);
-  const tokens = await createTokens(slug, count, PRINTED_CODE_DAYS);
+  const contest = String(formData.get("contest") ?? "");
+  if (!contest) return { error: "Choose a contest.", created: 0, batch: null };
+  const tokens = await createTokens(slug, count, PRINTED_CODE_DAYS, contest);
   const batch = tokens.length ? await batchOf(tokens[0]) : null;
   if (!batch) return { error: "Could not create codes. Try again.", created: 0, batch: null };
   refresh();

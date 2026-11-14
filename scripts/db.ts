@@ -32,17 +32,17 @@ try {
       const fresh = process.argv.includes("--fresh");
       await seed(sql, { fresh });
       const rows = await sql<{ slug: string; sector: string; live_version: number; tests: number; tasks: number; candidates: number }[]>`
-        SELECT c.slug, c.sector, c.live_version, count(DISTINCT t.id)::int AS tests,
+        SELECT c.slug, c.sector, coalesce(max(t.live_version), 0)::int AS live_version, count(DISTINCT t.id)::int AS tests,
           (SELECT count(*)::int FROM test_tasks tt JOIN tests t2 ON t2.id = tt.test_id WHERE t2.company_id = c.id) AS tasks,
           (SELECT count(*)::int FROM attempts a JOIN tests t3 ON t3.id = a.test_id WHERE t3.company_id = c.id) AS candidates
         FROM companies c LEFT JOIN tests t ON t.company_id = c.id
-        GROUP BY c.id, c.slug, c.sector, c.live_version ORDER BY c.slug`;
+        GROUP BY c.id, c.slug, c.sector ORDER BY c.slug`;
       const [lib] = await sql<{ tasks: number; templates: number }[]>`
         SELECT (SELECT count(*)::int FROM task_library) AS tasks, (SELECT count(*)::int FROM role_templates) AS templates`;
       console.log(`db:seed${fresh ? " --fresh" : ""} ok. Library: ${lib.tasks} tasks, ${lib.templates} role templates. ${rows.length} companies:`);
       for (const r of rows) {
         const model = r.live_version ? `job simulation v${r.live_version}` : `older tasks: ${r.tasks}`;
-        console.log(`  ${r.slug} (${r.sector}), ${model}, candidates: ${r.candidates}`);
+        console.log(`  ${r.slug} (${r.sector}), contests: ${r.tests}, ${model}, candidates: ${r.candidates}`);
       }
     } else {
       console.error("Usage: node --env-file=.env.local scripts/db.ts init|seed [--fresh]");

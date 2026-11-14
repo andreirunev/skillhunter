@@ -23,7 +23,7 @@ export default async function StatsPage(props: PageProps<"/r/[slug]/stats">) {
   const { slug } = await props.params;
   const company = await getCompany(slug);
   if (!company) notFound();
-  const rows = await listStatRows(company.test_id);
+  const rows = await listStatRows(company.id);
 
   return (
     <div className="flex flex-col gap-4 pt-2">

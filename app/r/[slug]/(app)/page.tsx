@@ -1,5 +1,4 @@
 import { notFound } from "next/navigation";
-import { CircleHelp } from "lucide-react";
 import { AutoRefresh } from "@/components/AutoRefresh";
 import { FindByCode } from "@/components/FindByCode";
 import { FabButton } from "@/components/ui/FabButton";
@@ -25,7 +24,9 @@ export default async function CandidatesPage(props: PageProps<"/r/[slug]">) {
   const { find } = await props.searchParams;
   const company = await getCompany(slug);
   if (!company) notFound();
-  const rows = await listCandidates(company.test_id);
+  const rows = await listCandidates(company.id);
+  // With several contests, each row says which one the candidate took.
+  const manyContests = new Set(rows.map((c) => c.contest_title)).size > 1;
 
   const items: CandidateItem[] = rows.map((c) => ({
     id: c.id,
@@ -35,6 +36,7 @@ export default async function CandidatesPage(props: PageProps<"/r/[slug]">) {
     status: c.status,
     finishedAt: c.finished_at?.getTime() ?? null,
     sub: [
+      ...(manyContests ? [c.contest_title] : []),
       ...(STAGE_NOTE[c.stage] ? [STAGE_NOTE[c.stage]!] : []),
       ...(c.finished_at
         ? [`Finished ${formatClock(c.finished_at)}`, formatMinutes(c.total_ms), ...(c.limit_reached ? ["limit reached"] : [])]
@@ -47,8 +49,7 @@ export default async function CandidatesPage(props: PageProps<"/r/[slug]">) {
   return (
     <div className="flex flex-col gap-4 pt-2">
       <AutoRefresh seconds={10} />
-      <ScreenTitle title="Candidates"
-        help={{ href: `/r/${slug}/contests#how-to`, label: "How it works", icon: <CircleHelp className="size-4" aria-hidden /> }} />
+      <ScreenTitle title="Candidates" />
       <FindByCode slug={slug} autoFocus={find === "1"} />
       <CandidatesView slug={slug} items={items} />
       <FabButton href={`/r/${slug}/codes?print=1`} label="Print booth codes" />

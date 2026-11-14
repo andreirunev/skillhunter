@@ -115,26 +115,29 @@ export function buildSnapshot(draft: Draft, library: LibraryTask[]):
   return { tasks, duties, title, timeLimit };
 }
 
-// Publish = a new frozen version. Attempts already started keep the version
-// they were given; new attempts get this one. Bumps companies.live_version.
-export async function publishTest(sql: postgres.Sql, companyId: string, draft: Draft):
-  Promise<{ error: string } | { version: number }> {
+// Publish = a new frozen version of one contest (testId null = a new contest,
+// created in the same transaction). Attempts already started keep the version
+// they were given; new attempts get this one. Bumps tests.live_version.
+export async function publishTest(sql: postgres.Sql, companyId: string, testId: string | null, draft: Draft):
+  Promise<{ error: string } | { version: number; testId: string }> {
   const built = buildSnapshot(draft, await listLibrary(sql));
   if ("error" in built) return built;
   const roleSlug = typeof draft.roleSlug === "string" ? draft.roleSlug.slice(0, 60) : null;
   return sql.begin(async (tx) => {
-    const [company] = await tx<{ live_version: number }[]>`
-      SELECT live_version FROM companies WHERE id = ${companyId}::uuid FOR UPDATE`;
-    if (!company) return { error: "unknown_company" };
+    const [test] = testId
+      ? await tx<{ id: string }[]>`
+          SELECT id FROM tests WHERE id = ${testId}::uuid AND company_id = ${companyId}::uuid FOR UPDATE`
+      : await tx<{ id: string }[]>`
+          INSERT INTO tests (company_id, title) VALUES (${companyId}::uuid, ${built.title}) RETURNING id`;
+    if (!test) return { error: "unknown_contest" };
     const [{ next }] = await tx<{ next: number }[]>`
-      SELECT coalesce(max(version), 0)::int + 1 AS next FROM company_tests WHERE company_id = ${companyId}::uuid`;
+      SELECT coalesce(max(version), 0)::int + 1 AS next FROM company_tests WHERE test_id = ${test.id}::uuid`;
     await tx`
-      INSERT INTO company_tests (company_id, version, title, role_slug, duties, tasks, time_limit_minutes, english_required)
-      VALUES (${companyId}::uuid, ${next}, ${built.title}, ${roleSlug}, ${tx.json(built.duties)}, ${tx.json(built.tasks)},
-        ${built.timeLimit}, ${Boolean(draft.englishRequired)})`;
-    await tx`UPDATE companies SET live_version = ${next} WHERE id = ${companyId}::uuid`;
-    await tx`UPDATE tests SET title = ${built.title} WHERE company_id = ${companyId}::uuid`;
-    return { version: next };
+      INSERT INTO company_tests (company_id, test_id, version, title, role_slug, duties, tasks, time_limit_minutes, english_required)
+      VALUES (${companyId}::uuid, ${test.id}::uuid, ${next}, ${built.title}, ${roleSlug}, ${tx.json(built.duties)},
+        ${tx.json(built.tasks)}, ${built.timeLimit}, ${Boolean(draft.englishRequired)})`;
+    await tx`UPDATE tests SET live_version = ${next}, title = ${built.title} WHERE id = ${test.id}::uuid`;
+    return { version: next, testId: test.id };
   });
 }
 
@@ -150,14 +153,40 @@ export type LiveTest = {
   published_at: Date;
 };
 
-// The version new candidates get, or null while the company still uses the
-// older task list (test_tasks).
-export async function getLiveTest(companyId: string): Promise<LiveTest | null> {
+// The version of one contest that new candidates get, or null while it still
+// uses the older task list (test_tasks).
+export async function getLiveTest(testId: string): Promise<LiveTest | null> {
   const [row] = await db()<LiveTest[]>`
     SELECT ct.id, ct.version, ct.title, ct.role_slug, ct.duties, ct.tasks, ct.time_limit_minutes, ct.english_required, ct.published_at
-    FROM companies c JOIN company_tests ct ON ct.company_id = c.id AND ct.version = c.live_version
-    WHERE c.id = ${companyId}::uuid`;
+    FROM tests t JOIN company_tests ct ON ct.test_id = t.id AND ct.version = t.live_version
+    WHERE t.id = ${testId}::uuid`;
   return row ?? null;
+}
+
+// One contest of a company as the Contests tab and the codes screen show it:
+// what a new candidate gets (live version, else the older task list).
+// live = candidates can take it (it has tasks).
+export type Contest = {
+  id: string;
+  title: string;
+  live_version: number;
+  task_count: number;
+  expected_sec: number;
+  time_limit_minutes: number;
+  live: boolean;
+};
+
+export async function listContests(companyId: string, sql: postgres.Sql = db()): Promise<Contest[]> {
+  const rows = await sql<Contest[]>`
+    SELECT t.id, coalesce(ct.title, t.title) AS title, t.live_version,
+      coalesce(jsonb_array_length(ct.tasks), (SELECT count(*)::int FROM test_tasks WHERE test_id = t.id)) AS task_count,
+      coalesce((SELECT sum((x->>'expected_seconds')::int)::int FROM jsonb_array_elements(ct.tasks) x),
+        (SELECT coalesce(sum(expected_sec), 0)::int FROM test_tasks WHERE test_id = t.id)) AS expected_sec,
+      coalesce(ct.time_limit_minutes, ${DEFAULT_TIME_LIMIT}) AS time_limit_minutes
+    FROM tests t LEFT JOIN company_tests ct ON ct.test_id = t.id AND ct.version = t.live_version
+    WHERE t.company_id = ${companyId}::uuid
+    ORDER BY t.created_at, t.id`;
+  return rows.map((r) => ({ ...r, live: r.task_count > 0 }));
 }
 
 type LegacyRow = { id: string; type: TaskType; payload: TaskPayload; answer_key: AnswerKey; expected_sec: number; skill: Skill; follow_ups: string[] };

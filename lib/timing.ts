@@ -1,7 +1,7 @@
 import { db } from "./db.ts";
 
 // Time limit per attempt (attempts.time_limit_minutes): copied from the
-// company's published test when the code is entered, default 20 minutes.
+// contest's published version when the code is entered, default 20 minutes.
 
 // Deadline = started_at + limit, enforced on the server by timestamps only
 // (no tab, visibility or pause tracking). Nothing runs in the background, so
@@ -16,12 +16,13 @@ export async function closeIfExpired(attemptId: string): Promise<void> {
       AND now() > started_at + make_interval(mins => time_limit_minutes)`;
 }
 
-// Recruiter side: every overdue attempt of a test that has at least one
-// answer. One with none may not have pressed Start yet, so it stays open.
-export async function closeExpiredForTest(testId: string): Promise<void> {
+// Recruiter side: every overdue attempt of the company's contests that has
+// at least one answer. One with none may not have pressed Start yet, so it
+// stays open.
+export async function closeExpiredForCompany(companyId: string): Promise<void> {
   await db()`
     UPDATE attempts a SET finished_at = a.started_at + make_interval(mins => a.time_limit_minutes)
-    WHERE a.test_id = ${testId}::uuid AND a.finished_at IS NULL
+    WHERE a.test_id IN (SELECT id FROM tests WHERE company_id = ${companyId}::uuid) AND a.finished_at IS NULL
       AND now() > a.started_at + make_interval(mins => a.time_limit_minutes)
       AND EXISTS (SELECT 1 FROM answers WHERE attempt_id = a.id)`;
 }

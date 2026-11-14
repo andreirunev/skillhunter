@@ -550,27 +550,3 @@ a[role="button"],
     display: none !important;
   }
 }
-
-/* Interview guide (/r/[slug]/guide): the screen bar is not printed, tasks do
-   not split across pages, and the sheet prints black on white in either
-   theme (the tokens are reset for print). */
-@media print {
-  .guide-root,
-  [data-theme="dark"] .guide-root {
-    --bg: #ffffff;
-    --card: #ffffff;
-    --border: #9ca3af;
-    --text: #000000;
-    --muted: #374151;
-    --info: #000000;
-    color-scheme: light;
-    background: #ffffff;
-    color: #000000;
-  }
-  .guide-screen {
-    display: none !important;
-  }
-  .guide-task {
-    break-inside: avoid;
-  }
-}

@@ -23,8 +23,8 @@ export type LiveDraft = {
   duties: { title: string; libraryId: string; followups: string[]; good: string[]; key: SimKey }[];
 };
 
-// A new draft asked for on the Contests tab: from a role example, or from
-// scratch (template null).
+// A new contest asked for on the Contests or Templates tab: from a role
+// template, or from scratch (template null).
 export type DraftStart = { template: RoleTemplate | null };
 
 // One duty in the draft: its title, the library task it maps to, and the
@@ -48,16 +48,17 @@ const rowFrom = (title: string, task: LibraryTask): Row =>
   ({ uid: uid(), title, taskId: task.id, followups: [...task.followups], good: [...task.good_looks_like], key: task.key });
 
 // Contest builder on one screen: name, the task list, Add task, and Save in a
-// bar fixed at the bottom. Opens on the live version when there is one. A new
-// draft (`start`) is local until saved; with a live contest the recruiter
-// confirms first. Saving publishes a new version, so the live one and the
-// attempts made on it never change.
-export function Builder({ slug, companyName, lang, templates, library, live, start }: {
+// bar fixed at the bottom. `contestId` = the contest being edited (opens on
+// its live version); null = a new contest (`start`), local until the first
+// Save creates it. Every Save publishes a new version of that one contest, so
+// its earlier versions, other contests and attempts never change.
+export function Builder({ slug, companyName, lang, templates, library, contestId, live, start }: {
   slug: string;
   companyName: string;
   lang: Lang;
   templates: RoleTemplate[];
   library: LibraryTask[];
+  contestId: string | null;
   live: LiveDraft | null;
   start: DraftStart | null;
 }) {
@@ -67,7 +68,7 @@ export function Builder({ slug, companyName, lang, templates, library, live, sta
   const templateRows = (t: RoleTemplate) => t.duties.flatMap((d) => (byId.get(d.task_id) ? [rowFrom(d.title, byId.get(d.task_id)!)] : []));
   const newDraft = (t: RoleTemplate | null) => ({ roleSlug: t?.slug ?? null, rows: t ? templateRows(t) : [], title: t ? `${t.name}: job simulation` : "" });
 
-  const [initial] = useState(() => (start && !live ? newDraft(start.template) : {
+  const [initial] = useState(() => (contestId === null ? newDraft(start?.template ?? null) : {
     roleSlug: live?.roleSlug ?? null,
     rows: (live?.duties ?? []).map((d): Row =>
       ({ uid: uid(), title: d.title, taskId: byId.has(d.libraryId) ? d.libraryId : null, followups: d.followups, good: d.good, key: d.key })),
@@ -76,8 +77,7 @@ export function Builder({ slug, companyName, lang, templates, library, live, sta
   const [roleSlug, setRoleSlug] = useState<string | null>(initial.roleSlug);
   const [rows, setRows] = useState<Row[]>(initial.rows);
   const [title, setTitle] = useState(initial.title);
-  const [confirmStart, setConfirmStart] = useState(() => Boolean(start && live));
-  const keepCurrent = useCallback(() => setConfirmStart(false), []);
+  const [contest, setContest] = useState(contestId);
   const [sheet, setSheet] = useState<SheetState>(null);
   const [error, setError] = useState<string | null>(null);
   const [published, setPublished] = useState<number | null>(null);
@@ -125,27 +125,24 @@ export function Builder({ slug, companyName, lang, templates, library, live, sta
     edit(() => templateRows(t));
     if (!title.trim()) setTitle(`${t.name}: job simulation`);
   }
-  // Replaces only the local draft; nothing is saved until Save.
-  function startNewDraft() {
-    const next = newDraft(start?.template ?? null);
-    setConfirmStart(false);
-    setRoleSlug(next.roleSlug);
-    setTitle(next.title);
-    edit(() => next.rows);
-  }
 
   function publish() {
     setError(null);
     startPublish(async () => {
-      const result = await publishDraft(slug, {
+      const result = await publishDraft(slug, contest, {
         roleSlug,
         title,
         timeLimit,
         englishRequired: live?.englishRequired ?? false,
         duties: rows.map((r) => ({ title: r.title, libraryId: r.taskId ?? "", followups: r.followups, good_looks_like: r.good, key: r.key })),
       }).catch(() => ({ ok: false as const, error: "failed" }));
-      if (result.ok) setPublished(result.version);
-      else setError(result.error);
+      if (!result.ok) return setError(result.error);
+      setPublished(result.version);
+      // A new contest exists now: later saves are its next versions.
+      if (contest !== result.contestId) {
+        setContest(result.contestId);
+        window.history.replaceState(null, "", `/r/${slug}/build?contest=${result.contestId}`);
+      }
     });
   }
 
@@ -220,16 +217,6 @@ export function Builder({ slug, companyName, lang, templates, library, live, sta
           </button>
         </div>
       </div>
-
-      {confirmStart && (
-        <Sheet title={tr("replaceTitle")} closeLabel={tr("close")} onClose={keepCurrent}>
-          <div className="flex flex-col gap-3">
-            <p className="text-sm">{tr("replaceBody")}</p>
-            <button type="button" onClick={startNewDraft} className="ui-btn ui-btn-primary min-h-12 text-base">{tr("replaceYes")}</button>
-            <button type="button" onClick={keepCurrent} className="ui-btn ui-btn-secondary min-h-12 text-base">{tr("replaceNo")}</button>
-          </div>
-        </Sheet>
-      )}
 
       {sheet && (sheet.kind !== "edit" || editRow) && (
         <Sheet title={sheetTitle} closeLabel={tr("close")} onClose={closeSheet}>

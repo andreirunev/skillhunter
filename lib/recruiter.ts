@@ -1,3 +1,4 @@
+import type postgres from "postgres";
 import { cache } from "react";
 import { db } from "./db.ts";
 import { isUuid } from "./data.ts";
@@ -9,7 +10,7 @@ import { attemptTasks, DEFAULT_TIME_LIMIT } from "./sim-store.ts";
 import type { Lang } from "./i18n.ts";
 import type { TicketTemplate } from "./tickets.ts";
 import { isInviteCode, normalizeInviteCode, type Contact, type RecruiterStage, type Stage } from "./stage.ts";
-import { closeExpiredForTest } from "./timing.ts";
+import { closeExpiredForCompany } from "./timing.ts";
 
 // Recruiter-side data. Demo access is by company slug; a real deployment puts
 // staff login in front of this. Nothing here scores, ranks or sorts by results.
@@ -18,8 +19,9 @@ export const STATUSES = ["new", "invited", "at_booth", "good_fit", "needs_review
 export type Status = (typeof STATUSES)[number];
 export const isStatus = (x: unknown): x is Status => typeof x === "string" && (STATUSES as readonly string[]).includes(x);
 
-// task_count / expected_sec / time_limit_minutes describe what a new
-// candidate gets: the live published version, else the older task list.
+// test_* / task_count / expected_sec / time_limit_minutes describe the
+// company's first contest (ticket defaults and the ticket preview); lists
+// cover all contests (lib/sim-store.ts listContests).
 export type Company = {
   id: string; slug: string; name: string; sector: string; booth: string; color: string; ticket: unknown;
   test_id: string; test_title: string; task_count: number; expected_sec: number;
@@ -29,15 +31,15 @@ export type Company = {
 // Cached per request: the recruiter layout and its page both read it.
 export const getCompany = cache(async (slug: string): Promise<Company | null> => {
   const [row] = await db()<Company[]>`
-    SELECT c.id, c.slug, c.name, c.sector, c.booth, c.color, c.ticket, c.live_version, t.id AS test_id,
+    SELECT c.id, c.slug, c.name, c.sector, c.booth, c.color, c.ticket, t.live_version, t.id AS test_id,
       coalesce(ct.title, t.title) AS test_title,
       coalesce(jsonb_array_length(ct.tasks), (SELECT count(*)::int FROM test_tasks WHERE test_id = t.id)) AS task_count,
       coalesce((SELECT sum((x->>'expected_seconds')::int)::int FROM jsonb_array_elements(ct.tasks) x),
         (SELECT coalesce(sum(expected_sec), 0)::int FROM test_tasks WHERE test_id = t.id)) AS expected_sec,
       coalesce(ct.time_limit_minutes, ${DEFAULT_TIME_LIMIT}) AS time_limit_minutes
     FROM companies c JOIN tests t ON t.company_id = c.id
-    LEFT JOIN company_tests ct ON ct.company_id = c.id AND ct.version = c.live_version
-    WHERE c.slug = ${slug} LIMIT 1`;
+    LEFT JOIN company_tests ct ON ct.test_id = t.id AND ct.version = t.live_version
+    WHERE c.slug = ${slug} ORDER BY t.created_at, t.id LIMIT 1`;
   return row ?? null;
 });
 
@@ -58,15 +60,21 @@ export type CandidateRow = {
   code_verified: boolean; // the recruiter typed the right code in the last 30 minutes
   stage: Stage;
   contact: Contact | null; // only at stage full_interview (candidate consent)
+  contest_title: string; // the contest this attempt is for (its own version's title)
 };
 
 // Recruiter queries read "invited" and "verified", never i.code itself.
 const VERIFY_MINUTES = 30;
 
-// Arrival order only (newest first). Deliberately no correctness or flag counts.
-export async function listCandidates(testId: string): Promise<CandidateRow[]> {
-  await closeExpiredForTest(testId);
-  const rows = await db()<CandidateRow[]>`
+// The company's contests (tests rows), as a subquery.
+const ofCompany = (sql: postgres.Sql, companyId: string) => sql`SELECT id FROM tests WHERE company_id = ${companyId}::uuid`;
+
+// All contests of the company, arrival order only (newest first).
+// Deliberately no correctness or flag counts.
+export async function listCandidates(companyId: string): Promise<CandidateRow[]> {
+  await closeExpiredForCompany(companyId);
+  const sql = db();
+  const rows = await sql<CandidateRow[]>`
     SELECT a.id, a.avatar_name, a.avatar_emoji, a.avatar_color, a.lang, a.status,
       a.started_at, a.finished_at,
       (SELECT count(*)::int FROM answers WHERE attempt_id = a.id) AS answered,
@@ -75,9 +83,10 @@ export async function listCandidates(testId: string): Promise<CandidateRow[]> {
       coalesce(extract(epoch from (a.finished_at - a.started_at)) * 1000, 0)::int AS total_ms,
       coalesce(a.finished_at >= a.started_at + make_interval(mins => a.time_limit_minutes), false) AS limit_reached,
       i.attempt_id IS NOT NULL AS invited,
-      coalesce(i.code_verified_at > now() - make_interval(mins => ${VERIFY_MINUTES}), false) AS code_verified, a.stage, a.contact
-    FROM attempts a LEFT JOIN invitations i ON i.attempt_id = a.id
-    WHERE a.test_id = ${testId}::uuid
+      coalesce(i.code_verified_at > now() - make_interval(mins => ${VERIFY_MINUTES}), false) AS code_verified, a.stage, a.contact,
+      coalesce((SELECT title FROM company_tests WHERE id = a.company_test_id), t.title) AS contest_title
+    FROM attempts a JOIN tests t ON t.id = a.test_id LEFT JOIN invitations i ON i.attempt_id = a.id
+    WHERE a.test_id IN (${ofCompany(sql, companyId)})
     ORDER BY a.started_at DESC`;
   return [...rows];
 }
@@ -95,11 +104,11 @@ export type DetailTask = SimTask & {
   note: string;
 };
 
-export async function getCandidate(testId: string, attemptId: string) {
+export async function getCandidate(companyId: string, attemptId: string) {
   if (!isUuid(attemptId)) return null;
-  await closeExpiredForTest(testId);
+  await closeExpiredForCompany(companyId);
   const sql = db();
-  const [attempt] = await sql<(Omit<CandidateRow, "answered" | "task_count"> & { time_limit_minutes: number })[]>`
+  const [attempt] = await sql<(Omit<CandidateRow, "answered" | "task_count" | "contest_title"> & { time_limit_minutes: number })[]>`
     SELECT a.id, a.avatar_name, a.avatar_emoji, a.avatar_color, a.lang, a.status, a.time_limit_minutes,
       a.started_at, a.finished_at,
       coalesce(extract(epoch from (a.finished_at - a.started_at)) * 1000, 0)::int AS total_ms,
@@ -107,7 +116,7 @@ export async function getCandidate(testId: string, attemptId: string) {
       i.attempt_id IS NOT NULL AS invited,
       coalesce(i.code_verified_at > now() - make_interval(mins => ${VERIFY_MINUTES}), false) AS code_verified, a.stage, a.contact
     FROM attempts a LEFT JOIN invitations i ON i.attempt_id = a.id
-    WHERE a.id = ${attemptId}::uuid AND a.test_id = ${testId}::uuid`;
+    WHERE a.id = ${attemptId}::uuid AND a.test_id IN (${ofCompany(sql, companyId)})`;
   if (!attempt) return null;
   type AnswerRow = { task_id: string; answer: Answer; matches_key: boolean; time_ms: number; changes: number; flags: FlagCode[] };
   type NoteRow = { task_id: string; asked: boolean; note: string };
@@ -250,18 +259,18 @@ export async function saveNote(attemptId: string, taskId: string, asked: boolean
 
 export type BoothCode = { code: string; taken: boolean };
 
-// Booth codes for the codes screen: free ones first (newest batch first), then
-// taken ones. "Taken" is all it says: never who used a code or when.
-export async function listCodes(testId: string): Promise<{ free: number; taken: number; codes: BoothCode[] }> {
+// Booth codes of all the company's contests: free ones first (newest batch
+// first), then taken ones. "Taken" is all it says: never who used a code or when.
+export async function listCodes(companyId: string): Promise<{ free: number; taken: number; codes: BoothCode[] }> {
   const sql = db();
   const [[counts], rows] = await Promise.all([
     sql<{ free: number; taken: number }[]>`
       SELECT count(*) FILTER (WHERE status = 'new' AND expires_at > now())::int AS free,
         count(*) FILTER (WHERE status = 'activated')::int AS taken
-      FROM qr_tokens WHERE test_id = ${testId}::uuid`,
+      FROM qr_tokens WHERE test_id IN (${ofCompany(sql, companyId)})`,
     sql<BoothCode[]>`
       SELECT token AS code, status = 'activated' AS taken FROM qr_tokens
-      WHERE test_id = ${testId}::uuid AND (status = 'activated' OR expires_at > now())
+      WHERE test_id IN (${ofCompany(sql, companyId)}) AND (status = 'activated' OR expires_at > now())
       ORDER BY status = 'activated', expires_at DESC, token
       LIMIT 300`,
   ]);
@@ -272,12 +281,13 @@ export type StatRow = { status: Status; finished: boolean; this_week: boolean };
 
 // For the Stats tab: one row per attempt, counted on the page. "This week"
 // starts Monday 00:00 event time. Counts only, nothing per person.
-export async function listStatRows(testId: string): Promise<StatRow[]> {
-  await closeExpiredForTest(testId);
-  const rows = await db()<StatRow[]>`
+export async function listStatRows(companyId: string): Promise<StatRow[]> {
+  await closeExpiredForCompany(companyId);
+  const sql = db();
+  const rows = await sql<StatRow[]>`
     SELECT status, finished_at IS NOT NULL AS finished,
       started_at >= (date_trunc('week', now() AT TIME ZONE 'Europe/Helsinki') AT TIME ZONE 'Europe/Helsinki') AS this_week
-    FROM attempts WHERE test_id = ${testId}::uuid`;
+    FROM attempts WHERE test_id IN (${ofCompany(sql, companyId)})`;
   return [...rows];
 }
 
@@ -295,29 +305,32 @@ export async function batchOf(token: string): Promise<string | null> {
   return row?.id ?? null;
 }
 
-// The batch's codes, alphabetical. Taken ones are only marked as taken.
-export async function listBatch(testId: string, batchId: string): Promise<BoothCode[] | null> {
+// The batch's codes, alphabetical, and the contest they are for (one INSERT,
+// so one contest). Taken ones are only marked as taken.
+export async function listBatch(companyId: string, batchId: string): Promise<{ testId: string; codes: BoothCode[] } | null> {
   if (!BATCH_ID.test(batchId)) return null;
-  const rows = await db()<BoothCode[]>`
-    SELECT token AS code, status = 'activated' AS taken FROM qr_tokens
-    WHERE test_id = ${testId}::uuid AND (extract(epoch from expires_at) * 1000000)::bigint = ${batchId}::bigint
+  const sql = db();
+  const rows = await sql<(BoothCode & { test_id: string })[]>`
+    SELECT token AS code, status = 'activated' AS taken, test_id FROM qr_tokens
+    WHERE test_id IN (${ofCompany(sql, companyId)}) AND (extract(epoch from expires_at) * 1000000)::bigint = ${batchId}::bigint
     ORDER BY token`;
-  return rows.length ? [...rows] : null;
+  return rows.length ? { testId: rows[0].test_id, codes: rows.map(({ code, taken }) => ({ code, taken })) } : null;
 }
 
-export type BatchRow = { id: string; size: number; taken: number; created: Date };
+export type BatchRow = { id: string; size: number; taken: number; created: Date; contest_title: string };
 
 // Recent print batches still valid, newest first. Single-code demo links are
 // not batches and are left out.
-export async function listBatches(testId: string, limit = 5): Promise<BatchRow[]> {
-  const rows = await db()<BatchRow[]>`
-    SELECT (extract(epoch from expires_at) * 1000000)::bigint::text AS id, count(*)::int AS size,
-      count(*) FILTER (WHERE status = 'activated')::int AS taken,
-      expires_at - ${PRINTED_CODE_DAYS}::int * interval '1 day' AS created
-    FROM qr_tokens
-    WHERE test_id = ${testId}::uuid AND expires_at > now()
-    GROUP BY expires_at HAVING count(*) > 1
-    ORDER BY expires_at DESC LIMIT ${limit}`;
+export async function listBatches(companyId: string, limit = 5): Promise<BatchRow[]> {
+  const sql = db();
+  const rows = await sql<BatchRow[]>`
+    SELECT (extract(epoch from q.expires_at) * 1000000)::bigint::text AS id, count(*)::int AS size,
+      count(*) FILTER (WHERE q.status = 'activated')::int AS taken,
+      q.expires_at - ${PRINTED_CODE_DAYS}::int * interval '1 day' AS created, min(t.title) AS contest_title
+    FROM qr_tokens q JOIN tests t ON t.id = q.test_id
+    WHERE q.test_id IN (${ofCompany(sql, companyId)}) AND q.expires_at > now()
+    GROUP BY q.expires_at HAVING count(*) > 1
+    ORDER BY q.expires_at DESC LIMIT ${limit}`;
   return [...rows];
 }
 

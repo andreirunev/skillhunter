@@ -13,18 +13,23 @@ import type { BoothCode } from "@/lib/recruiter";
 import { TICKETS_PER_SHEET } from "@/lib/tickets";
 import { createCodes } from "../actions";
 
-type Batch = { id: string; size: number; taken: number; created: string };
+type Batch = { id: string; size: number; taken: number; created: string; contest: string };
+type ContestOption = { id: string; title: string; live: boolean };
 
 const SHOWN_CODES = 30;
 
-// Print tickets (rounded up to full A4 sheets), reprint a recent batch, and a
-// small list of codes. A free tile copies its one code; a taken tile only
+// Print tickets for one contest (rounded up to full A4 sheets; with several
+// contests the recruiter picks one, preselected when only one is live),
+// reprint a recent batch, and a small list of codes. A free tile copies its one code; a taken tile only
 // says "Taken" (never who or when).
-export function CodesView({ slug, free, taken, codes, batches, max, days, highlight }: {
+export function CodesView({ slug, free, taken, codes, contests, preselect, contestLabels, batches, max, days, highlight }: {
   slug: string;
   free: number;
   taken: number;
   codes: BoothCode[];
+  contests: ContestOption[];
+  preselect: string;
+  contestLabels: { question: string; choose: string; draft: string };
   batches: Batch[];
   max: number;
   days: number;
@@ -33,6 +38,8 @@ export function CodesView({ slug, free, taken, codes, batches, max, days, highli
   const router = useRouter();
   const [state, formAction, pending] = useActionState(createCodes, { error: "", created: 0, batch: null });
   const [count, setCount] = useState("10");
+  const [contest, setContest] = useState(preselect);
+  const showBatchContest = new Set(batches.map((b) => b.contest)).size > 1;
 
   const asked = Number(count);
   const valid = Number.isInteger(asked) && asked >= 1 && asked <= max;
@@ -65,6 +72,20 @@ export function CodesView({ slug, free, taken, codes, batches, max, days, highli
         <form action={formAction}
           className={`flex flex-col gap-3 rounded-card border bg-card p-4 ${highlight ? "border-fg/60" : "border-border"}`}>
           <input type="hidden" name="slug" value={slug} />
+          {contests.length > 1 ? (
+            <label className="flex flex-col gap-1.5 text-sm font-semibold">
+              {contestLabels.question}
+              <select name="contest" required value={contest} onChange={(e) => setContest(e.target.value)}
+                className="h-11 w-full border border-border bg-bg px-3 text-base font-semibold text-fg outline-none focus:border-fg/40">
+                <option value="" disabled>{contestLabels.choose}</option>
+                {contests.map((c) => (
+                  <option key={c.id} value={c.id} disabled={!c.live}>{c.live ? c.title : `${c.title} (${contestLabels.draft})`}</option>
+                ))}
+              </select>
+            </label>
+          ) : (
+            <input type="hidden" name="contest" value={contest} />
+          )}
           <label className="flex items-center justify-between gap-3 text-sm font-semibold">
             How many tickets
             <input name="count" type="number" inputMode="numeric" min={1} max={max} required
@@ -76,7 +97,7 @@ export function CodesView({ slug, free, taken, codes, batches, max, days, highli
               ? `${tickets} tickets on ${sheets} A4 sheet${sheets === 1 ? "" : "s"} (${TICKETS_PER_SHEET} per sheet, rounded up).`
               : `Choose 1 to ${max}.`}
           </p>
-          <button type="submit" disabled={pending || !valid} aria-busy={pending} className="ui-btn ui-btn-primary min-h-12 w-full text-base">
+          <button type="submit" disabled={pending || !valid || !contest} aria-busy={pending} className="ui-btn ui-btn-primary min-h-12 w-full text-base">
             {pending ? <><Spinner />Creating…</> : <><Printer className="size-4" aria-hidden />Create and print</>}
           </button>
           <p aria-live="polite" className={`text-[13px] ${state.error ? "font-medium text-bad" : "text-muted"}`}>
@@ -99,6 +120,7 @@ export function CodesView({ slug, free, taken, codes, batches, max, days, highli
                   <Printer className="size-4 shrink-0 text-muted" aria-hidden />
                   <span className="min-w-0 flex-1">
                     <span className="block text-sm font-semibold">{joinSep([`${b.size} tickets`, b.created])}</span>
+                    {showBatchContest && <span className="block truncate text-[13px] text-muted">{b.contest}</span>}
                     <span className="block text-[13px] text-muted">{joinSep([`${b.size - b.taken} free`, `${b.taken} taken`])}</span>
                   </span>
                   <span className="text-sm font-semibold">Reprint</span>

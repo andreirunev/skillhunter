@@ -127,9 +127,10 @@ CREATE TABLE IF NOT EXISTS recruiter_notes (
 -- Job simulation. A Head of HR describes the role's duties before the event;
 -- each duty maps to one micro-task from task_library (seeded from
 -- lib/sim-library.ts, starting points in role_templates). Publishing freezes
--- a full copy of the tasks in company_tests (one row per version), so later
--- edits never change an attempt in flight. companies.live_version = the
--- version new candidates get (0 = the older test_tasks list).
+-- a full copy of the tasks in company_tests (one row per version of a
+-- contest), so later edits never change an attempt in flight.
+-- tests.live_version = the version new candidates get (0 = the older
+-- test_tasks list); see "Contests" below.
 CREATE TABLE IF NOT EXISTS task_library (
   id               text PRIMARY KEY,
   format           text NOT NULL CHECK (format IN ('triage','spot_error','next_step','apply_rule','read_decide','handover','quick_logic')),
@@ -183,6 +184,23 @@ CREATE INDEX IF NOT EXISTS attempts_by_company_test ON attempts (company_test_id
 -- with their attempt (ON DELETE CASCADE on attempt_id).
 ALTER TABLE answers DROP CONSTRAINT IF EXISTS answers_task_id_fkey;
 ALTER TABLE recruiter_notes DROP CONSTRAINT IF EXISTS recruiter_notes_task_id_fkey;
+
+-- Contests: a company may run several (one tests row each, e.g. a warehouse
+-- and a cleaner contest). Each has its own published versions and its own
+-- live version; booth codes and attempts already point at one tests row.
+-- companies.live_version is no longer read (left for older deployments).
+ALTER TABLE tests ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT now();
+ALTER TABLE tests ADD COLUMN IF NOT EXISTS live_version integer NOT NULL DEFAULT 0;
+ALTER TABLE company_tests ADD COLUMN IF NOT EXISTS test_id uuid REFERENCES tests(id) ON DELETE CASCADE;
+-- Versions published while a company had one contest belong to that contest.
+UPDATE company_tests ct SET test_id = (
+  SELECT t.id FROM tests t WHERE t.company_id = ct.company_id ORDER BY t.created_at, t.id LIMIT 1)
+WHERE ct.test_id IS NULL;
+UPDATE tests t SET live_version = (SELECT max(version) FROM company_tests ct WHERE ct.test_id = t.id)
+WHERE t.live_version = 0 AND EXISTS (SELECT 1 FROM company_tests ct WHERE ct.test_id = t.id);
+ALTER TABLE company_tests DROP CONSTRAINT IF EXISTS company_tests_company_id_version_key;
+CREATE UNIQUE INDEX IF NOT EXISTS company_tests_by_test_version ON company_tests (test_id, version);
+CREATE INDEX IF NOT EXISTS tests_by_company ON tests (company_id, created_at);
 
 CREATE INDEX IF NOT EXISTS test_tasks_by_test ON test_tasks (test_id, position);
 CREATE INDEX IF NOT EXISTS attempts_by_test ON attempts (test_id, started_at);

@@ -54,7 +54,7 @@ export async function getTokenView(token: string, ownerHash: string | null): Pro
     LEFT JOIN attempts a ON a.id = q.attempt_id
     -- The attempt's own version; before entry, the version it would get.
     LEFT JOIN company_tests ct ON ct.id = CASE WHEN a.id IS NULL
-      THEN (SELECT id FROM company_tests WHERE company_id = c.id AND version = c.live_version)
+      THEN (SELECT id FROM company_tests WHERE test_id = t.id AND version = t.live_version)
       ELSE a.company_test_id END
     WHERE q.token = ${token}`;
   return row ?? null;
@@ -63,8 +63,8 @@ export async function getTokenView(token: string, ownerHash: string | null): Pro
 // Burn on entry: the first valid entry of a code creates the attempt and binds
 // it to the entering device. One atomic statement, so a code can never start
 // a second attempt. Avatar and language are chosen on the next screen. The
-// attempt is pinned to the company's live test version and its time limit
-// (nothing published yet: the older task list and the default limit).
+// attempt is pinned to the live version of the code's contest and its time
+// limit (nothing published yet: the older task list and the default limit).
 export async function enterCode(code: string, ownerHash: string): Promise<string | null> {
   const id = randomUUID();
   const avatar = makeAvatar();
@@ -75,8 +75,8 @@ export async function enterCode(code: string, ownerHash: string): Promise<string
       RETURNING test_id
     ), live AS (
       SELECT ct.id, ct.time_limit_minutes FROM tok
-      JOIN tests t ON t.id = tok.test_id JOIN companies c ON c.id = t.company_id
-      JOIN company_tests ct ON ct.company_id = c.id AND ct.version = c.live_version
+      JOIN tests t ON t.id = tok.test_id
+      JOIN company_tests ct ON ct.test_id = t.id AND ct.version = t.live_version
     )
     INSERT INTO attempts (id, test_id, avatar_name, avatar_emoji, avatar_color, owner_hash, company_test_id, time_limit_minutes)
     SELECT ${id}::uuid, tok.test_id, ${avatar.name}, ${avatar.emoji}, ${avatar.color}, ${ownerHash},
@@ -105,13 +105,17 @@ export async function setupAttempt(token: string, ownerHash: string, lang: Lang)
   return row?.id ?? null;
 }
 
-// Fresh single-use tokens for a company's test: one per demo QR link (1 day),
-// or a batch of printed booth codes. Returns the tokens actually created.
-export async function createTokens(slug: string, count: number, days: number): Promise<string[]> {
+// Fresh single-use tokens for one contest of a company: one per demo QR link
+// (1 day), or a batch of printed booth codes. testId null = the company's
+// first contest. Returns the tokens actually created.
+export async function createTokens(slug: string, count: number, days: number, testId: string | null = null): Promise<string[]> {
+  if (testId !== null && !isUuid(testId)) return [];
   const tokens = Array.from({ length: count }, makeToken);
   const rows = await db()<{ token: string }[]>`
     WITH t AS (
-      SELECT t.id FROM tests t JOIN companies c ON c.id = t.company_id WHERE c.slug = ${slug} LIMIT 1
+      SELECT t.id FROM tests t JOIN companies c ON c.id = t.company_id
+      WHERE c.slug = ${slug} AND (${testId}::uuid IS NULL OR t.id = ${testId}::uuid)
+      ORDER BY t.created_at, t.id LIMIT 1
     )
     INSERT INTO qr_tokens (token, test_id, expires_at)
     SELECT tok, t.id, now() + ${days}::int * interval '1 day' FROM t, unnest(${tokens}::text[]) AS tok
