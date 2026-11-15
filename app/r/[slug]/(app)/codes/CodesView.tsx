@@ -1,17 +1,19 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useCallback, useEffect, useOptimistic, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChevronRight, CircleCheck, CircleDot, Printer } from "lucide-react";
 import { FlagMini } from "@/components/FlagLoader";
+import { ActionSheet } from "@/components/ui/ActionSheet";
+import { FilterPills } from "@/components/ui/FilterPills";
 import { SectionLabel } from "@/components/ui/ScreenTitle";
 import { joinSep } from "@/components/ui/Sep";
 import { StatCard } from "@/components/ui/StatCard";
 import { toast } from "@/components/ui/Toast";
-import type { BoothCode } from "@/lib/recruiter";
+import type { ListedCode } from "@/lib/recruiter";
 import { TICKETS_PER_SHEET } from "@/lib/tickets";
-import { createCodes } from "../actions";
+import { createCodes, deleteBatch } from "../actions";
 
 type Batch = { id: string; size: number; taken: number; created: string; contest: string };
 // note: why it cannot get codes ("Offline" or "Draft"), empty when live.
@@ -22,13 +24,15 @@ const SHOWN_CODES = 30;
 // Print tickets for one contest (rounded up to full A4 sheets; with several
 // contests, or one that is not live, the recruiter picks one, preselected when
 // only one is live; Offline and Draft contests are listed but disabled),
-// reprint a recent batch, and a small list of codes. A free tile copies its one code; a taken tile only
-// says "Taken" (never who or when).
+// reprint or delete a recent batch, and a small list of codes, filterable by
+// contest. A free tile copies its one code; a taken tile only says "Taken"
+// (never who or when). Deleting a batch hides it and its free codes at once
+// and brings them back if the server says no.
 export function CodesView({ slug, free, taken, codes, contests, preselect, contestLabels, batches, max, days, highlight }: {
   slug: string;
   free: number;
   taken: number;
-  codes: BoothCode[];
+  codes: ListedCode[];
   contests: ContestOption[];
   preselect: string;
   contestLabels: { question: string; choose: string };
@@ -42,6 +46,22 @@ export function CodesView({ slug, free, taken, codes, contests, preselect, conte
   const [count, setCount] = useState("10");
   const [contest, setContest] = useState(preselect);
   const showBatchContest = new Set(batches.map((b) => b.contest)).size > 1;
+  const [pick, setPick] = useState("all");
+  const [confirm, setConfirm] = useState<Batch | null>(null);
+  const closeConfirm = useCallback(() => setConfirm(null), []);
+  const [, startDelete] = useTransition();
+  const [gone, hide] = useOptimistic<string[], string>([], (ids, id) => [...ids, id]);
+
+  const shownBatches = batches.filter((b) => !gone.includes(b.id));
+  const freeNow = free - batches.filter((b) => gone.includes(b.id)).reduce((n, b) => n + b.size - b.taken, 0);
+  const allCodes = codes.filter((c) => c.taken || !gone.includes(c.batch));
+  const titles = new Map(contests.map((c) => [c.id, c.title]));
+  const perContest = contests
+    .map((c) => ({ id: c.id, title: c.title, n: allCodes.filter((x) => x.contest === c.id).length }))
+    .filter((c) => c.n > 0);
+  const chips = [{ value: "all", label: "All" }, ...perContest.map((c) => ({ value: c.id, label: `${c.title} ${c.n}` }))];
+  const filter = chips.some((c) => c.value === pick) ? pick : "all"; // its codes may all be gone
+  const shownCodes = filter === "all" ? allCodes : allCodes.filter((c) => c.contest === filter);
 
   const asked = Number(count);
   const valid = Number.isInteger(asked) && asked >= 1 && asked <= max;
@@ -52,6 +72,15 @@ export function CodesView({ slug, free, taken, codes, contests, preselect, conte
   useEffect(() => {
     if (state.batch) router.push(`/r/${slug}/print/${state.batch}?auto=1`);
   }, [state, router, slug]);
+
+  function remove(b: Batch) {
+    setConfirm(null);
+    startDelete(async () => {
+      hide(b.id);
+      const ok = await deleteBatch(slug, b.id).catch(() => false);
+      toast(ok ? "Batch deleted" : "Could not delete the batch. Try again.");
+    });
+  }
 
   async function copy(code: string) {
     try {
@@ -65,7 +94,7 @@ export function CodesView({ slug, free, taken, codes, contests, preselect, conte
   return (
     <>
       <div className="grid grid-cols-2 gap-3">
-        <StatCard label="Free" value={free} icon={CircleDot} tone="ok" />
+        <StatCard label="Free" value={freeNow} icon={CircleDot} tone="ok" />
         <StatCard label="Taken" value={taken} icon={CircleCheck} tone="muted" />
       </div>
 
@@ -111,14 +140,14 @@ export function CodesView({ slug, free, taken, codes, contests, preselect, conte
         </form>
       </section>
 
-      {batches.length > 0 && (
+      {shownBatches.length > 0 && (
         <section className="flex flex-col gap-3">
-          <SectionLabel>{joinSep(["Recent batches", batches.length])}</SectionLabel>
+          <SectionLabel>{joinSep(["Recent batches", shownBatches.length])}</SectionLabel>
           <ul className="flex flex-col gap-2">
-            {batches.map((b) => (
-              <li key={b.id}>
+            {shownBatches.map((b) => (
+              <li key={b.id} className="flex items-stretch rounded-card border border-border bg-card">
                 <Link href={`/r/${slug}/print/${b.id}`}
-                  className="tap flex min-h-14 items-center gap-3 rounded-card border border-border bg-card px-3.5 py-2.5 active:bg-track">
+                  className="tap flex min-h-14 min-w-0 flex-1 items-center gap-3 rounded-l-card py-2.5 pl-3.5 pr-3 active:bg-track">
                   <Printer className="size-4 shrink-0 text-muted" aria-hidden />
                   <span className="min-w-0 flex-1">
                     <span className="block text-sm font-semibold">{joinSep([`${b.size} tickets`, b.created])}</span>
@@ -127,29 +156,44 @@ export function CodesView({ slug, free, taken, codes, contests, preselect, conte
                   </span>
                   <span className="text-sm font-semibold">Reprint</span>
                 </Link>
+                <button type="button" onClick={() => setConfirm(b)} aria-label={`Delete batch: ${b.size} tickets, ${b.created}`}
+                  className="tap shrink-0 rounded-r-card border-l border-border px-3.5 text-sm font-semibold text-bad/80 active:bg-track">
+                  Delete
+                </button>
               </li>
             ))}
           </ul>
         </section>
       )}
 
+      <ActionSheet open={confirm !== null} title="Delete this batch?" onClose={closeConfirm}>
+        <p className="mb-1 text-sm text-muted">
+          Unused codes will stop working.
+          {confirm && confirm.taken > 0 && ` ${confirm.taken} code${confirm.taken === 1 ? " is" : "s are"} already used and will be kept.`}
+        </p>
+        <button type="button" onClick={() => confirm && remove(confirm)} className="ui-btn min-h-12 border-bad bg-bad text-base text-white">Delete</button>
+      </ActionSheet>
+
       <section className="flex flex-col gap-3">
-        <SectionLabel>{joinSep(["Codes", codes.length])}</SectionLabel>
-        {codes.length === 0 ? (
+        <SectionLabel>{joinSep(["Codes", shownCodes.length])}</SectionLabel>
+        {allCodes.length > 0 && <FilterPills label="Filter codes by contest" options={chips} value={filter} onChange={setPick} />}
+        {shownCodes.length === 0 ? (
           <p className="rounded-card border border-border bg-card p-4 text-center text-sm text-muted">No codes yet. Print some above.</p>
         ) : (
           <ul className="grid grid-cols-3 gap-2 sm:grid-cols-4">
-            {codes.slice(0, SHOWN_CODES).map((c) => (
+            {shownCodes.slice(0, SHOWN_CODES).map((c) => (
               <li key={c.code}>
                 {c.taken ? (
                   <div className="flex flex-col items-center gap-1.5 rounded-tile border border-border bg-card px-1 py-2.5 opacity-55">
                     <span className="font-mono text-sm font-bold tracking-wider text-muted line-through decoration-1">{c.code}</span>
+                    <span className="w-full truncate px-1 text-center text-[11px] text-muted">{titles.get(c.contest)}</span>
                     <span className="rounded-pill bg-fg/10 px-2 py-0.5 text-[11px] font-semibold text-muted">Taken</span>
                   </div>
                 ) : (
                   <button type="button" onClick={() => copy(c.code)} aria-label={`Copy code ${c.code}`}
                     className="flex w-full flex-col items-center gap-1.5 rounded-tile border border-border bg-card px-1 py-2.5 active:bg-track">
                     <span className="font-mono text-sm font-bold tracking-wider">{c.code}</span>
+                    <span className="w-full truncate px-1 text-center text-[11px] text-muted">{titles.get(c.contest)}</span>
                     <span className="rounded-pill bg-ok/15 px-2 py-0.5 text-[11px] font-semibold text-ok">Free</span>
                   </button>
                 )}
@@ -157,8 +201,8 @@ export function CodesView({ slug, free, taken, codes, contests, preselect, conte
             ))}
           </ul>
         )}
-        {codes.length > SHOWN_CODES && (
-          <p className="text-[13px] text-muted">and {codes.length - SHOWN_CODES} more</p>
+        {shownCodes.length > SHOWN_CODES && (
+          <p className="text-[13px] text-muted">and {shownCodes.length - SHOWN_CODES} more</p>
         )}
       </section>
     </>

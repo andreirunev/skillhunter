@@ -258,18 +258,21 @@ export async function saveNote(attemptId: string, taskId: string, asked: boolean
 }
 
 export type BoothCode = { code: string; taken: boolean };
+// contest = the code's test id; batch = its print batch (see BATCH_ID below).
+export type ListedCode = BoothCode & { contest: string; batch: string };
 
 // Booth codes of all the company's contests: free ones first (newest batch
 // first), then taken ones. "Taken" is all it says: never who used a code or when.
-export async function listCodes(companyId: string): Promise<{ free: number; taken: number; codes: BoothCode[] }> {
+export async function listCodes(companyId: string): Promise<{ free: number; taken: number; codes: ListedCode[] }> {
   const sql = db();
   const [[counts], rows] = await Promise.all([
     sql<{ free: number; taken: number }[]>`
       SELECT count(*) FILTER (WHERE status = 'new' AND expires_at > now())::int AS free,
         count(*) FILTER (WHERE status = 'activated')::int AS taken
       FROM qr_tokens WHERE test_id IN (${ofCompany(sql, companyId)})`,
-    sql<BoothCode[]>`
-      SELECT token AS code, status = 'activated' AS taken FROM qr_tokens
+    sql<ListedCode[]>`
+      SELECT token AS code, status = 'activated' AS taken, test_id AS contest,
+        (extract(epoch from expires_at) * 1000000)::bigint::text AS batch FROM qr_tokens
       WHERE test_id IN (${ofCompany(sql, companyId)}) AND (status = 'activated' OR expires_at > now())
       ORDER BY status = 'activated', expires_at DESC, token
       LIMIT 300`,
@@ -332,6 +335,22 @@ export async function listBatches(companyId: string, limit = 5): Promise<BatchRo
     GROUP BY q.expires_at HAVING count(*) > 1
     ORDER BY q.expires_at DESC LIMIT ${limit}`;
   return [...rows];
+}
+
+// "Delete" on a recent batch: its unused codes are deleted, so they stop
+// working. Codes a candidate already used stay with their attempts and expire
+// now, which drops the batch from the recent list. One transaction: a code
+// entered meanwhile is either deleted first (the entry fails) or kept as used.
+export async function deleteBatch(companyId: string, batchId: string): Promise<boolean> {
+  if (!BATCH_ID.test(batchId)) return false;
+  return db().begin(async (sql) => {
+    const inBatch = () => sql`
+      test_id IN (SELECT id FROM tests WHERE company_id = ${companyId}::uuid)
+      AND (extract(epoch from expires_at) * 1000000)::bigint = ${batchId}::bigint`;
+    const gone = await sql`DELETE FROM qr_tokens WHERE ${inBatch()} AND status = 'new' RETURNING token`;
+    const kept = await sql`UPDATE qr_tokens SET expires_at = now() WHERE ${inBatch()} AND status = 'activated' RETURNING token`;
+    return gone.length + kept.length > 0;
+  });
 }
 
 // Ticket text for the company's printed booth tickets (companies.ticket).

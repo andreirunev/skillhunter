@@ -16,7 +16,7 @@ export function FilterPills<T extends string>({ label, options, value, onChange 
         const on = o.value === value;
         return (
           <button key={o.value} type="button" role="radio" aria-checked={on} onClick={() => onChange(o.value)}
-            className={`min-h-10 shrink-0 rounded-btn border px-4 text-sm font-semibold ${
+            className={`min-h-10 shrink-0 whitespace-nowrap rounded-btn border px-4 text-sm font-semibold ${
               on ? "border-accent bg-accent text-bg" : "border-border bg-card text-fg/80"
             }`}>
             {o.label}

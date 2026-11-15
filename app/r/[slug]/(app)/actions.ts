@@ -3,7 +3,7 @@
 import { refresh } from "next/cache";
 import { createTokens, isUuid } from "@/lib/data";
 import { db } from "@/lib/db";
-import { batchOf, getCompany, isDemoMode, saveTicket } from "@/lib/recruiter";
+import { batchOf, deleteBatch as deleteBatchCodes, getCompany, isDemoMode, saveTicket } from "@/lib/recruiter";
 import { seed } from "@/lib/seed";
 import { setContestLive } from "@/lib/sim-store";
 import { MAX_CODES_PER_BATCH, PRINTED_CODE_DAYS } from "@/lib/codes";
@@ -28,6 +28,20 @@ export async function createCodes(_prev: CodesState, formData: FormData): Promis
   if (!batch) return { error: "Could not create codes. Try again.", created: 0, batch: null };
   refresh();
   return { error: "", created: tokens.length, batch };
+}
+
+// Booth codes tab, "Delete" on a recent batch (lib/recruiter.ts deleteBatch):
+// unused codes go, used ones stay with their candidates.
+export async function deleteBatch(slug: string, batchId: string): Promise<boolean> {
+  const company = await getCompany(String(slug));
+  if (!company) return false;
+  try {
+    if (!(await deleteBatchCodes(company.id, String(batchId)))) return false;
+  } catch {
+    return false;
+  }
+  refresh();
+  return true;
 }
 
 // Contests tab chip: Live <-> Offline for one published contest of this
