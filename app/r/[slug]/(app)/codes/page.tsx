@@ -28,9 +28,10 @@ export default async function CodesPage(props: PageProps<"/r/[slug]/codes">) {
       <AutoRefresh seconds={10} />
       <ScreenTitle title="Booth codes" />
       <CodesView slug={slug} free={free} taken={taken} codes={codes}
-        contests={contests.map((c) => ({ id: c.id, title: c.title, live: c.live }))}
-        preselect={live.length === 1 ? live[0].id : contests.length === 1 ? contests[0].id : ""}
-        contestLabels={{ question: bt(lang, "codesFor"), choose: bt(lang, "chooseContest"), draft: bt(lang, "statusDraft") }}
+        contests={contests.map((c) => ({ id: c.id, title: c.title, live: c.live,
+          note: c.live ? "" : bt(lang, c.published ? "statusOffline" : "statusDraft") }))}
+        preselect={live.length === 1 ? live[0].id : ""}
+        contestLabels={{ question: bt(lang, "codesFor"), choose: bt(lang, "chooseContest") }}
         batches={batches.map((b) => ({ id: b.id, size: b.size, taken: b.taken, created: formatClock(b.created), contest: b.contest_title }))}
         max={MAX_CODES_PER_BATCH} days={PRINTED_CODE_DAYS} highlight={print === "1"} />
     </div>

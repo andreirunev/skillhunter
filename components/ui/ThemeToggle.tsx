@@ -14,8 +14,9 @@ function subscribe(onChange: () => void) {
 }
 const current = (): Theme => (document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light");
 
-// Small "Light / Dark" segmented control. Saves the choice under one key.
-// "lg" is 44px tall (landing header).
+// Small "Light / Dark" segmented control, square like the rest of the site
+// (2px corners, 1px border, the active side a white chip). Same height as
+// LangSelect: 36px, "lg" 44px. Saves the choice under one key.
 export function ThemeToggle({ labels = { light: "Light", dark: "Dark" }, label = "Theme", size = "md" }: {
   labels?: Record<Theme, string>;
   label?: string;
@@ -33,10 +34,11 @@ export function ThemeToggle({ labels = { light: "Light", dark: "Dark" }, label =
   }
 
   return (
-    <div role="radiogroup" aria-label={label} className="flex shrink-0 rounded-pill bg-track p-0.5">
+    <div role="radiogroup" aria-label={label}
+      className={`${size === "lg" ? "h-11" : "h-9"} flex shrink-0 rounded-[2px] border border-border bg-track p-0.5`}>
       {THEMES.map((t) => (
         <button key={t} type="button" role="radio" aria-checked={theme === t} onClick={() => choose(t)}
-          className={`${size === "lg" ? "h-10 px-3" : "h-8 px-2.5"} rounded-pill text-xs font-semibold ${theme === t ? "bg-accent text-bg" : "text-muted"}`}>
+          className={`${size === "lg" ? "px-3" : "px-2.5"} rounded-[2px] text-xs font-semibold ${theme === t ? "bg-white text-[#0b0b0c]" : "text-muted"}`}>
           {labels[t]}
         </button>
       ))}

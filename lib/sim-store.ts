@@ -165,7 +165,8 @@ export async function getLiveTest(testId: string): Promise<LiveTest | null> {
 
 // One contest of a company as the Contests tab and the codes screen show it:
 // what a new candidate gets (live version, else the older task list).
-// live = candidates can take it (it has tasks).
+// published = it has tasks; paused = switched Offline on the Contests tab;
+// live = candidates can take it (published and not paused).
 export type Contest = {
   id: string;
   title: string;
@@ -173,12 +174,14 @@ export type Contest = {
   task_count: number;
   expected_sec: number;
   time_limit_minutes: number;
+  paused: boolean;
+  published: boolean;
   live: boolean;
 };
 
 export async function listContests(companyId: string, sql: postgres.Sql = db()): Promise<Contest[]> {
-  const rows = await sql<Contest[]>`
-    SELECT t.id, coalesce(ct.title, t.title) AS title, t.live_version,
+  const rows = await sql<Omit<Contest, "published" | "live">[]>`
+    SELECT t.id, coalesce(ct.title, t.title) AS title, t.live_version, t.paused,
       coalesce(jsonb_array_length(ct.tasks), (SELECT count(*)::int FROM test_tasks WHERE test_id = t.id)) AS task_count,
       coalesce((SELECT sum((x->>'expected_seconds')::int)::int FROM jsonb_array_elements(ct.tasks) x),
         (SELECT coalesce(sum(expected_sec), 0)::int FROM test_tasks WHERE test_id = t.id)) AS expected_sec,
@@ -186,7 +189,22 @@ export async function listContests(companyId: string, sql: postgres.Sql = db()):
     FROM tests t LEFT JOIN company_tests ct ON ct.test_id = t.id AND ct.version = t.live_version
     WHERE t.company_id = ${companyId}::uuid
     ORDER BY t.created_at, t.id`;
-  return rows.map((r) => ({ ...r, live: r.task_count > 0 }));
+  return rows.map((r) => ({ ...r, published: r.task_count > 0, live: r.task_count > 0 && !r.paused }));
+}
+
+// Contests tab Live/Offline toggle. A contest never published stays Draft
+// (refused). Also bumps companies.live_version, the company-wide change counter.
+export async function setContestLive(companyId: string, testId: string, live: boolean): Promise<boolean> {
+  return db().begin(async (tx) => {
+    const rows = await tx`
+      UPDATE tests t SET paused = ${!live}
+      WHERE t.id = ${testId}::uuid AND t.company_id = ${companyId}::uuid
+        AND (t.live_version > 0 OR EXISTS (SELECT 1 FROM test_tasks WHERE test_id = t.id))
+      RETURNING t.id`;
+    if (rows.length === 0) return false;
+    await tx`UPDATE companies SET live_version = live_version + 1 WHERE id = ${companyId}::uuid`;
+    return true;
+  });
 }
 
 type LegacyRow = { id: string; type: TaskType; payload: TaskPayload; answer_key: AnswerKey; expected_sec: number; skill: Skill; follow_ups: string[] };

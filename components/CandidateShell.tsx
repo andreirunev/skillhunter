@@ -30,7 +30,10 @@ export function CandidateShell({ lang: initial, company, showLang = true, childr
               <p className="truncate">{company?.name ?? "SkillScan"}</p>
               {company && <p className="truncate">{t(lang, "booth", { booth: company.booth })}</p>}
             </div>
-            {showLang && <LangSelect value={lang} onChange={setLang} label={t(lang, "language")} />}
+            {showLang && <>
+              <LangSelect value={lang} onChange={setLang} label={t(lang, "language")} />
+              <span aria-hidden className="h-5 w-px bg-border" />
+            </>}
             <ThemeToggle label={t(lang, "theme")} labels={{ light: t(lang, "light"), dark: t(lang, "dark") }} />
           </div>
         </header>

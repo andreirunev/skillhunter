@@ -1,6 +1,4 @@
 import type { Viewport } from "next";
-import Link from "@/components/TransitionLink";
-import { ClipboardList, KeyRound } from "lucide-react";
 import { notFound } from "next/navigation";
 import { BottomTabs } from "@/components/ui/BottomTabs";
 import { joinSep } from "@/components/ui/Sep";
@@ -31,17 +29,7 @@ export default async function RecruiterLayout({ children, params }: LayoutProps<
           <p className="min-w-0 truncate text-[11px] font-semibold uppercase tracking-[0.08em] text-muted">
             {joinSep([company.name, `Booth ${company.booth}`])}
           </p>
-          <div className="flex shrink-0 items-center gap-1.5">
-            <Link href={`/r/${slug}/contests`} aria-label={contestsLabel} title={contestsLabel}
-              className="tap inline-flex size-9 items-center justify-center rounded-pill bg-track text-muted">
-              <ClipboardList className="size-4" aria-hidden />
-            </Link>
-            <Link href={`/r/${slug}?find=1`} aria-label="Find by code" title="Find by code"
-              className="tap inline-flex size-9 items-center justify-center rounded-pill bg-track text-muted">
-              <KeyRound className="size-4" aria-hidden />
-            </Link>
-            <ThemeToggle />
-          </div>
+          <ThemeToggle />
         </div>
         {children}
       </div>

@@ -84,6 +84,7 @@ const en = {
   codeLabel: "Booth code",
   joinUsed: "This code was already used or has expired. Ask the booth for a new one.",
   joinMissing: "Code not found. Check the letters and digits.",
+  joinPaused: "This contest is paused. Ask the recruiter.",
   joinMine: "You started this test on this phone. Continue",
   checking: "Checking…",
 };
@@ -164,6 +165,7 @@ const fi: Record<MessageKey, string> = {
   codeLabel: "Osastokoodi",
   joinUsed: "Koodi on jo käytetty tai vanhentunut. Pyydä osastolta uusi.",
   joinMissing: "Koodia ei löytynyt. Tarkista kirjaimet ja numerot.",
+  joinPaused: "Tämä kilpailu on tauolla. Kysy rekrytoijalta.",
   joinMine: "Aloitit tämän testin tällä puhelimella. Jatka",
   checking: "Tarkistetaan…",
 };
@@ -243,6 +245,7 @@ const sv: Record<MessageKey, string> = {
   codeLabel: "Monterkod",
   joinUsed: "Koden har redan använts eller gått ut. Be montern om en ny.",
   joinMissing: "Koden hittades inte. Kontrollera bokstäver och siffror.",
+  joinPaused: "Den här tävlingen är pausad. Fråga rekryteraren.",
   joinMine: "Du började testet på den här telefonen. Fortsätt",
   checking: "Kontrollerar…",
 };

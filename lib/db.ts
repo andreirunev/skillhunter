@@ -201,6 +201,9 @@ WHERE t.live_version = 0 AND EXISTS (SELECT 1 FROM company_tests ct WHERE ct.tes
 ALTER TABLE company_tests DROP CONSTRAINT IF EXISTS company_tests_company_id_version_key;
 CREATE UNIQUE INDEX IF NOT EXISTS company_tests_by_test_version ON company_tests (test_id, version);
 CREATE INDEX IF NOT EXISTS tests_by_company ON tests (company_id, created_at);
+-- Offline (Contests tab toggle): no new booth codes, and an unused code of
+-- this contest is not accepted. Attempts already entered can finish.
+ALTER TABLE tests ADD COLUMN IF NOT EXISTS paused boolean NOT NULL DEFAULT false;
 
 CREATE INDEX IF NOT EXISTS test_tasks_by_test ON test_tasks (test_id, position);
 CREATE INDEX IF NOT EXISTS attempts_by_test ON attempts (test_id, started_at);

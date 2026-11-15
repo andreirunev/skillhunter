@@ -1,6 +1,6 @@
 import Link from "@/components/TransitionLink";
 import { notFound } from "next/navigation";
-import { ArrowRight, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { RecruiterLang } from "@/components/RecruiterLang";
 import { NEW_TASK_FORMATS, TaskTypeCards } from "@/components/TaskTypeCards";
 import { SectionLabel, ScreenTitle } from "@/components/ui/ScreenTitle";
@@ -9,11 +9,23 @@ import { bt, type BuilderKey } from "@/lib/i18n-builder";
 import { cookieLang } from "@/lib/lang";
 import { getCompany, isDemoMode } from "@/lib/recruiter";
 import { listContests } from "@/lib/sim-store";
+import { ContestStatus, type ContestStatusLabels } from "./ContestStatus";
 import { ResetDemo } from "./ResetDemo";
 
 export const dynamic = "force-dynamic";
 
-const LABEL = "text-[11px] font-semibold uppercase tracking-[0.08em] text-muted";
+// Template library mark: a 2x2 grid, drawn like the lucide "+" beside it.
+function GridIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"
+      className={className} aria-hidden>
+      <rect x="3" y="3" width="7" height="7" rx="1" />
+      <rect x="14" y="3" width="7" height="7" rx="1" />
+      <rect x="3" y="14" width="7" height="7" rx="1" />
+      <rect x="14" y="14" width="7" height="7" rx="1" />
+    </svg>
+  );
+}
 
 // Contests tab: start a contest (from scratch or a template), the company's
 // contests, and the three task types offered for new tasks.
@@ -23,6 +35,10 @@ export default async function ContestsPage(props: PageProps<"/r/[slug]/contests"
   if (!company) notFound();
   const [contests, lang] = await Promise.all([listContests(company.id), cookieLang().then((l) => l ?? "en")]);
   const t = (key: BuilderKey, vars?: Record<string, string | number>) => bt(lang, key, vars);
+  const statusLabels: ContestStatusLabels = {
+    live: t("statusLive"), offline: t("statusOffline"), draft: t("statusDraft"),
+    goOffline: t("goOffline"), goLive: t("goLive"), publishFirst: t("publishFirst"), failed: t("toggleFailed"),
+  };
 
   return (
     <div className="flex flex-col gap-6 pt-2">
@@ -37,15 +53,8 @@ export default async function ContestsPage(props: PageProps<"/r/[slug]/contests"
           <Plus className="size-6" aria-hidden />{t("fromScratchCta")}
         </Link>
         <Link href={`/r/${slug}/templates`}
-          className="tap flex min-h-32 flex-col justify-between gap-6 border border-border bg-card p-5 hover:border-fg/40 md:min-h-44">
-          <span className={LABEL}>{t("templatesLabel")}</span>
-          <span className="flex items-end justify-between gap-4">
-            <span className="min-w-0">
-              <span className="block text-xl font-bold leading-tight md:text-2xl">{t("templatesCta")}</span>
-              <span className="mt-1.5 block text-[13px] leading-snug text-muted">{t("templatesLine")}</span>
-            </span>
-            <ArrowRight className="size-6 shrink-0" aria-hidden />
-          </span>
+          className="tap flex min-h-32 flex-col items-start justify-between gap-6 border border-border bg-card p-5 text-left text-xl font-bold leading-tight hover:border-fg/40 md:min-h-44 md:text-2xl">
+          <GridIcon className="size-6" />{t("templatesCta")}
         </Link>
       </section>
 
@@ -59,10 +68,7 @@ export default async function ContestsPage(props: PageProps<"/r/[slug]/contests"
               <li key={c.id} className="border border-border bg-card p-4">
                 <div className="flex items-start justify-between gap-3">
                   <p className="min-w-0 font-semibold leading-snug">{c.title}</p>
-                  <span className={`inline-flex h-6 shrink-0 items-center border px-2 text-[11px] font-semibold uppercase tracking-[0.08em] ${
-                    c.live ? "border-ok/40 text-ok" : "border-border text-muted"}`}>
-                    {t(c.live ? "statusLive" : "statusDraft")}
-                  </span>
+                  <ContestStatus slug={slug} contestId={c.id} published={c.published} live={!c.paused} labels={statusLabels} />
                 </div>
                 <div className="mt-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-3">
                   <p className="text-[13px] text-muted">

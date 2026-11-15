@@ -65,6 +65,7 @@ export async function getTokenView(token: string, ownerHash: string | null): Pro
 // a second attempt. Avatar and language are chosen on the next screen. The
 // attempt is pinned to the live version of the code's contest and its time
 // limit (nothing published yet: the older task list and the default limit).
+// A code of an Offline contest is not burned (/join says "paused").
 export async function enterCode(code: string, ownerHash: string): Promise<string | null> {
   const id = randomUUID();
   const avatar = makeAvatar();
@@ -72,6 +73,7 @@ export async function enterCode(code: string, ownerHash: string): Promise<string
     WITH tok AS (
       UPDATE qr_tokens SET status = 'activated', attempt_id = ${id}::uuid
       WHERE token = ${code} AND status = 'new' AND expires_at > now()
+        AND test_id IN (SELECT id FROM tests WHERE NOT paused)
       RETURNING test_id
     ), live AS (
       SELECT ct.id, ct.time_limit_minutes FROM tok
@@ -107,14 +109,15 @@ export async function setupAttempt(token: string, ownerHash: string, lang: Lang)
 
 // Fresh single-use tokens for one contest of a company: one per demo QR link
 // (1 day), or a batch of printed booth codes. testId null = the company's
-// first contest. Returns the tokens actually created.
+// first contest that is not Offline. Returns the tokens actually created
+// (none for an Offline contest).
 export async function createTokens(slug: string, count: number, days: number, testId: string | null = null): Promise<string[]> {
   if (testId !== null && !isUuid(testId)) return [];
   const tokens = Array.from({ length: count }, makeToken);
   const rows = await db()<{ token: string }[]>`
     WITH t AS (
       SELECT t.id FROM tests t JOIN companies c ON c.id = t.company_id
-      WHERE c.slug = ${slug} AND (${testId}::uuid IS NULL OR t.id = ${testId}::uuid)
+      WHERE c.slug = ${slug} AND (${testId}::uuid IS NULL OR t.id = ${testId}::uuid) AND NOT t.paused
       ORDER BY t.created_at, t.id LIMIT 1
     )
     INSERT INTO qr_tokens (token, test_id, expires_at)
@@ -131,14 +134,14 @@ export async function createToken(slug: string): Promise<string | null> {
 
 // For /join: only says whether a typed code can start a test ("mine" = used,
 // by this device). Never which company or candidate.
-export async function checkCode(code: string, ownerHash: string | null): Promise<"ready" | "used" | "mine" | "missing"> {
+export async function checkCode(code: string, ownerHash: string | null): Promise<"ready" | "paused" | "used" | "mine" | "missing"> {
   if (!isCodeShape(code)) return "missing";
-  const [row] = await db()<{ ready: boolean; mine: boolean }[]>`
-    SELECT q.status = 'new' AND q.expires_at > now() AS ready,
+  const [row] = await db()<{ ready: boolean; paused: boolean; mine: boolean }[]>`
+    SELECT q.status = 'new' AND q.expires_at > now() AS ready, t.paused,
       coalesce(a.owner_hash = ${ownerHash ?? ""}, false) AS mine
-    FROM qr_tokens q LEFT JOIN attempts a ON a.id = q.attempt_id
+    FROM qr_tokens q JOIN tests t ON t.id = q.test_id LEFT JOIN attempts a ON a.id = q.attempt_id
     WHERE q.token = ${code}`;
-  return !row ? "missing" : row.ready ? "ready" : row.mine ? "mine" : "used";
+  return !row ? "missing" : row.ready ? (row.paused ? "paused" : "ready") : row.mine ? "mine" : "used";
 }
 
 export type PlayerAttempt = {

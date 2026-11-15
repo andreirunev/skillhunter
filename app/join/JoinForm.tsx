@@ -10,7 +10,7 @@ import { t } from "@/lib/i18n";
 // Plain POST form: works without JS, and the server burns the code on entry.
 export function JoinForm({ initialCode, error, continueHref }: {
   initialCode: string;
-  error: "used" | "missing" | null;
+  error: "used" | "missing" | "paused" | null;
   continueHref: string | null;
 }) {
   const lang = useLang();
@@ -56,7 +56,7 @@ export function JoinForm({ initialCode, error, continueHref }: {
           className="min-h-16 rounded-card border border-border bg-card px-4 text-center font-mono text-3xl font-bold tracking-[0.2em] text-fg outline-none placeholder:text-muted/50 focus:border-fg/40"
         />
         <p id="code-error" aria-live="polite" className="min-h-5 text-sm font-medium text-bad">
-          {error === "missing" ? t(lang, "joinMissing") : error === "used" ? t(lang, "joinUsed") : ""}
+          {error === "missing" ? t(lang, "joinMissing") : error === "used" ? t(lang, "joinUsed") : error === "paused" ? t(lang, "joinPaused") : ""}
         </p>
         <button type="submit" disabled={pending} aria-busy={pending} className="ui-btn ui-btn-primary min-h-14 text-lg">
           {pending ? <><FlagMini />{t(lang, "checking")}</> : t(lang, "start")}

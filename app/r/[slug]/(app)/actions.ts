@@ -1,10 +1,11 @@
 "use server";
 
 import { refresh } from "next/cache";
-import { createTokens } from "@/lib/data";
+import { createTokens, isUuid } from "@/lib/data";
 import { db } from "@/lib/db";
 import { batchOf, getCompany, isDemoMode, saveTicket } from "@/lib/recruiter";
 import { seed } from "@/lib/seed";
+import { setContestLive } from "@/lib/sim-store";
 import { MAX_CODES_PER_BATCH, PRINTED_CODE_DAYS } from "@/lib/codes";
 import { TICKET_FIELDS, TICKET_LIMITS, TICKETS_PER_SHEET, type TicketTemplate } from "@/lib/tickets";
 
@@ -27,6 +28,20 @@ export async function createCodes(_prev: CodesState, formData: FormData): Promis
   if (!batch) return { error: "Could not create codes. Try again.", created: 0, batch: null };
   refresh();
   return { error: "", created: tokens.length, batch };
+}
+
+// Contests tab chip: Live <-> Offline for one published contest of this
+// company (lib/sim-store.ts setContestLive). Nothing is deleted.
+export async function setContestStatus(slug: string, contestId: string, live: boolean): Promise<boolean> {
+  const company = await getCompany(String(slug));
+  if (!company || !isUuid(contestId)) return false;
+  try {
+    if (!(await setContestLive(company.id, contestId, Boolean(live)))) return false;
+  } catch {
+    return false;
+  }
+  refresh();
+  return true;
 }
 
 export type TicketState = { error: string; saved: number };

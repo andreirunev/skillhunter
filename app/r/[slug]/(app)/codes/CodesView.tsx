@@ -14,12 +14,14 @@ import { TICKETS_PER_SHEET } from "@/lib/tickets";
 import { createCodes } from "../actions";
 
 type Batch = { id: string; size: number; taken: number; created: string; contest: string };
-type ContestOption = { id: string; title: string; live: boolean };
+// note: why it cannot get codes ("Offline" or "Draft"), empty when live.
+type ContestOption = { id: string; title: string; live: boolean; note: string };
 
 const SHOWN_CODES = 30;
 
 // Print tickets for one contest (rounded up to full A4 sheets; with several
-// contests the recruiter picks one, preselected when only one is live),
+// contests, or one that is not live, the recruiter picks one, preselected when
+// only one is live; Offline and Draft contests are listed but disabled),
 // reprint a recent batch, and a small list of codes. A free tile copies its one code; a taken tile only
 // says "Taken" (never who or when).
 export function CodesView({ slug, free, taken, codes, contests, preselect, contestLabels, batches, max, days, highlight }: {
@@ -29,7 +31,7 @@ export function CodesView({ slug, free, taken, codes, contests, preselect, conte
   codes: BoothCode[];
   contests: ContestOption[];
   preselect: string;
-  contestLabels: { question: string; choose: string; draft: string };
+  contestLabels: { question: string; choose: string };
   batches: Batch[];
   max: number;
   days: number;
@@ -72,14 +74,14 @@ export function CodesView({ slug, free, taken, codes, contests, preselect, conte
         <form action={formAction}
           className={`flex flex-col gap-3 rounded-card border bg-card p-4 ${highlight ? "border-fg/60" : "border-border"}`}>
           <input type="hidden" name="slug" value={slug} />
-          {contests.length > 1 ? (
+          {contests.length > 1 || !contests[0]?.live ? (
             <label className="flex flex-col gap-1.5 text-sm font-semibold">
               {contestLabels.question}
               <select name="contest" required value={contest} onChange={(e) => setContest(e.target.value)}
                 className="h-11 w-full border border-border bg-bg px-3 text-base font-semibold text-fg outline-none focus:border-fg/40">
                 <option value="" disabled>{contestLabels.choose}</option>
                 {contests.map((c) => (
-                  <option key={c.id} value={c.id} disabled={!c.live}>{c.live ? c.title : `${c.title} (${contestLabels.draft})`}</option>
+                  <option key={c.id} value={c.id} disabled={!c.live}>{c.live ? c.title : `${c.title} (${c.note})`}</option>
                 ))}
               </select>
             </label>
