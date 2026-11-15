@@ -56,7 +56,9 @@ export function RecruiterForm() {
         type="password"
         autoComplete="off"
         autoCapitalize="none"
-        placeholder="RECRUITER PIN"
+        // Public demo PIN on purpose, so judges can try the recruiter side.
+        // Real deployment needs proper recruiter login.
+        placeholder="kulku"
         required
         aria-invalid={Boolean(error)}
         aria-describedby="lp-pin-error"

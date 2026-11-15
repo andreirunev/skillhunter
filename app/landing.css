@@ -140,6 +140,10 @@
   color: var(--g3-ink);
   opacity: 1;
 }
+/* The demo PIN hint shows as typed (lowercase). */
+.lp-form-pin .lp-input::placeholder {
+  text-transform: none;
+}
 .lp-dark .lp-input {
   border-color: var(--white);
   letter-spacing: 0.14em;
