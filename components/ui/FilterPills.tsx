@@ -2,7 +2,7 @@
 
 type Option<T extends string> = { value: T; label: string };
 
-// One horizontal row of filter pills; scrolls sideways, active pill is white.
+// One horizontal row of filter chips; scrolls sideways, never wraps; active chip is white.
 export function FilterPills<T extends string>({ label, options, value, onChange }: {
   label: string;
   options: readonly Option<T>[];
@@ -16,7 +16,7 @@ export function FilterPills<T extends string>({ label, options, value, onChange 
         const on = o.value === value;
         return (
           <button key={o.value} type="button" role="radio" aria-checked={on} onClick={() => onChange(o.value)}
-            className={`min-h-10 shrink-0 rounded-pill border px-4 text-sm font-semibold ${
+            className={`min-h-10 shrink-0 rounded-btn border px-4 text-sm font-semibold ${
               on ? "border-accent bg-accent text-bg" : "border-border bg-card text-fg/80"
             }`}>
             {o.label}

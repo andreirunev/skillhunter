@@ -1,6 +1,5 @@
 import { notFound } from "next/navigation";
 import { AutoRefresh } from "@/components/AutoRefresh";
-import { FindByCode } from "@/components/FindByCode";
 import { FabButton } from "@/components/ui/FabButton";
 import { ScreenTitle } from "@/components/ui/ScreenTitle";
 import { getCompany, listCandidates } from "@/lib/recruiter";
@@ -50,8 +49,7 @@ export default async function CandidatesPage(props: PageProps<"/r/[slug]">) {
     <div className="flex flex-col gap-4 pt-2">
       <AutoRefresh seconds={10} />
       <ScreenTitle title="Candidates" />
-      <FindByCode slug={slug} autoFocus={find === "1"} />
-      <CandidatesView slug={slug} items={items} />
+      <CandidatesView slug={slug} items={items} focusCode={find === "1"} />
       <FabButton href={`/r/${slug}/codes?print=1`} label="Print booth codes" />
     </div>
   );

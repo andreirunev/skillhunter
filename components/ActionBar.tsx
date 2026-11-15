@@ -30,7 +30,7 @@ function infoFor(stage: Stage, invited: boolean, verified: boolean): ReactNode {
     case "mini_interview": return joinSep(["Short interview started", "your call on the next step"]);
     case "contact_requested": return "Waiting for candidate details";
     case "closed": return joinSep(["Not this time", "the candidate sees a polite thank-you"]);
-    case "full_interview": return joinSep(["Contact details received", "see Identified"]);
+    case "full_interview": return joinSep(["Contact details received", "see Shortlist"]);
     case "contact_declined": return "The candidate chose not to share details";
     default:
       if (!invited) return "Your call. Nothing is decided automatically.";

@@ -3,6 +3,7 @@
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { CircleDot, Handshake, Lock, Send, ThumbsUp } from "lucide-react";
+import { FindByCode, type CodeMatch } from "@/components/FindByCode";
 import { FilterPills } from "@/components/ui/FilterPills";
 import { AvatarTile, ListRow } from "@/components/ui/ListRow";
 import { SectionLabel } from "@/components/ui/ScreenTitle";
@@ -25,16 +26,20 @@ export type CandidateItem = {
   contact: Contact | null; // set only once the candidate shared details with consent
 };
 
-type Scope = "anonymous" | "identified";
+type Scope = "anonymous" | "shortlist";
 type Filter = Status | "all";
 
 const SCOPES = [
   { value: "anonymous", label: "Anonymous" },
-  { value: "identified", label: "Identified" },
+  { value: "shortlist", label: "Shortlist" },
 ] as const;
 
-const FILTER_ORDER: Status[] = ["new", "invited", "at_booth", "good_fit", "needs_review", "not_now", "interview"];
-const FILTERS = [{ value: "all" as Filter, label: "All" }, ...FILTER_ORDER.map((s) => ({ value: s as Filter, label: STATUS_TEXT[s] }))];
+const FILTERS: { value: Filter; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "good_fit", label: "Good fit" },
+  { value: "needs_review", label: "Check" },
+  { value: "not_now", label: "Not now" },
+];
 
 const STATS = [
   { status: "new", icon: CircleDot, tone: "muted" },
@@ -44,30 +49,42 @@ const STATS = [
 ] as const;
 
 // Items arrive newest first and stay in that order. Two levels: Anonymous
-// (avatar only, no contact data) and Identified (the candidate shared contact
-// details by consent). Nothing here sorts or filters by results.
-export function CandidatesView({ slug, items }: { slug: string; items: CandidateItem[] }) {
+// (avatar only, no contact data, found by code) and Shortlist (offered a full
+// interview and shared contact details by consent, found by name). Nothing
+// here sorts or filters by results.
+export function CandidatesView({ slug, items, focusCode = false }: { slug: string; items: CandidateItem[]; focusCode?: boolean }) {
   const [scope, setScope] = useState<Scope>("anonymous");
   const [filter, setFilter] = useState<Filter>("all");
   const [query, setQuery] = useState("");
+  const [code, setCode] = useState<CodeMatch>(undefined);
 
-  const pool = items.filter((c) => (scope === "identified") === (c.contact !== null));
-  const q = query.trim().toLowerCase();
-  const shown = pool.filter((c) =>
+  const pool = items.filter((c) => (scope === "shortlist") === (c.contact !== null));
+  const q = scope === "shortlist" ? query.trim().toLowerCase() : "";
+  // A code match is a direct lookup: it shows that one candidate, whatever the chips say.
+  const shown = code !== undefined ? items.filter((c) => c.id === code) : pool.filter((c) =>
     (filter === "all" || c.status === filter) &&
     (!q || [c.name, c.contact?.full_name, c.contact?.phone, c.contact?.email]
       .some((x) => x?.toLowerCase().includes(q))));
 
   // Default anonymous view: finished candidates without a decision first
   // (newest finish first), then everyone else in arrival order.
-  const split = scope === "anonymous" && filter === "all" && !q;
+  const split = scope === "anonymous" && filter === "all" && code === undefined;
   const needs = split
     ? shown.filter((c) => c.status === "new" && c.finishedAt !== null).sort((a, b) => b.finishedAt! - a.finishedAt!)
     : [];
   const rest = split ? shown.filter((c) => !needs.includes(c)) : shown;
   const restLabel = split
     ? "Everyone else"
-    : q ? "Results" : filter !== "all" ? STATUS_TEXT[filter] : "Shared contact details";
+    : code !== undefined ? "Code match"
+    : q ? "Results"
+    : filter !== "all" ? FILTERS.find((f) => f.value === filter)?.label ?? STATUS_TEXT[filter]
+    : "Shared contact details";
+
+  function pickScope(next: Scope) {
+    setScope(next);
+    setQuery("");
+    setCode(undefined); // the code field unmounts with the Anonymous tab
+  }
 
   function pickStat(status: Status) {
     setFilter(filter === status ? "all" : status);
@@ -75,8 +92,9 @@ export function CandidatesView({ slug, items }: { slug: string; items: Candidate
 
   return (
     <>
-      <Segmented label="Candidate level" options={SCOPES} value={scope} onChange={setScope} />
-      {scope === "identified" && (
+      <Segmented label="Candidate level" options={SCOPES} value={scope} onChange={pickScope} />
+      {scope === "shortlist" && <SearchInput label="Search candidates" placeholder="Search name" value={query} onChange={setQuery} />}
+      {scope === "shortlist" && (
         <p className="flex items-start gap-2 rounded-card border border-border bg-card p-3 text-[13px] text-muted">
           <Lock className="mt-0.5 size-4 shrink-0" aria-hidden />
           Contact data is shared only by the candidate&apos;s consent. Delete with event data.
@@ -91,7 +109,7 @@ export function CandidatesView({ slug, items }: { slug: string; items: Candidate
         ))}
       </div>
 
-      <SearchInput label="Search candidates" placeholder="Search name" value={query} onChange={setQuery} />
+      {scope === "anonymous" && <FindByCode slug={slug} autoFocus={focusCode} onMatch={setCode} />}
       <FilterPills label="Filter by status" options={FILTERS} value={filter} onChange={setFilter} />
 
       {needs.length > 0 && <Section label={joinSep(["Needs your call", needs.length])} slug={slug} items={needs} />}
@@ -110,7 +128,7 @@ function Section({ label, slug, items }: { label: ReactNode; slug: string; items
         <ul className="flex flex-col gap-3">
           {items.map((c) => (
             <li key={c.id}>
-              {c.contact ? <IdentifiedRow slug={slug} item={c} contact={c.contact} /> : <ListRow href={`/r/${slug}/a/${c.id}`} title={c.name} sub={joinSep(c.sub)}
+              {c.contact ? <ShortlistRow slug={slug} item={c} contact={c.contact} /> : <ListRow href={`/r/${slug}/a/${c.id}`} title={c.name} sub={joinSep(c.sub)}
                 leading={<AvatarTile emoji={c.emoji} color={c.color} />}
                 trailing={<StatusPill status={c.status} />} />}
             </li>
@@ -121,8 +139,8 @@ function Section({ label, slug, items }: { label: ReactNode; slug: string; items
   );
 }
 
-// Identified candidate: the details they chose to share, then the usual facts.
-function IdentifiedRow({ slug, item: c, contact }: { slug: string; item: CandidateItem; contact: Contact }) {
+// Shortlisted candidate: the details they chose to share, then the usual facts.
+function ShortlistRow({ slug, item: c, contact }: { slug: string; item: CandidateItem; contact: Contact }) {
   return (
     <Link href={`/r/${slug}/a/${c.id}`} className="tap flex items-start gap-3 rounded-card border border-border bg-card p-3 active:bg-track">
       <AvatarTile emoji={c.emoji} color={c.color} />
