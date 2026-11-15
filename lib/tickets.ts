@@ -21,7 +21,7 @@ export const TICKET_LIMITS: Record<keyof TicketTemplate, number> = {
   footer: 80,
 };
 
-export const TICKET_LABEL = ["SkillHunter", "Junction 2026 demo"];
+export const TICKET_LABEL = ["SkillScan", "Junction 2026 demo"];
 export const TICKETS_PER_SHEET = 10;
 
 export const DEFAULT_RULES =

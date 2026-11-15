@@ -24,7 +24,7 @@ export function BottomTabs({ slug, contestsLabel }: { slug: string; contestsLabe
   return (
     <nav data-dock aria-label="Recruiter sections"
       className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-bg pb-[env(safe-area-inset-bottom)] lg:inset-y-0 lg:right-auto lg:w-(--rail) lg:border-r lg:border-t-0 lg:px-3 lg:pb-0 lg:pt-6">
-      <p className="hidden px-3 pb-5 text-lg font-bold tracking-tight lg:block">SkillHunter</p>
+      <p className="hidden px-3 pb-5 text-lg font-bold tracking-tight lg:block">SkillScan</p>
       <ul className="mx-auto grid h-14 max-w-[720px] grid-cols-4 lg:h-auto lg:grid-cols-1 lg:gap-1">
         {TABS.map(({ path, label: en, icon: Icon }) => {
           const label = path === "/contests" ? contestsLabel : en;

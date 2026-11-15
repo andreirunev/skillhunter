@@ -1,0 +1,909 @@
+/* Landing page (/), black and white only. Tokens from the brief; grey text
+   on white uses --g3-ink because --g3 on white is 3.5:1 (WCAG AA needs 4.5).
+   Motion: CSS keyframes, paused off screen and given hidden start states by
+   app/LandingMotion.tsx ([data-motion], [data-in], [data-seen]). Reduced
+   motion (globals.css) drops every animation and transition, so what shows
+   is each element's base style: the final frame. */
+
+.lp {
+  --black: #0a0a0a;
+  --white: #ffffff;
+  --g1: #f2f2f2;
+  --g2: #e0e0e0;
+  --g3: #8a8a8a;
+  --g4: #1c1c1c;
+  --g3-ink: #6b6b6b;
+  --display: var(--font-bricolage), ui-sans-serif, system-ui, sans-serif;
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  overflow-x: clip;
+  background: var(--white);
+  color: var(--black);
+}
+.lp-light {
+  background: var(--white);
+  color: var(--black);
+}
+.lp-dark {
+  background: var(--black);
+  color: var(--white);
+}
+.lp-light :focus-visible {
+  outline: 3px solid var(--black);
+  outline-offset: 3px;
+}
+.lp-dark :focus-visible {
+  outline: 3px solid var(--white);
+  outline-offset: 3px;
+}
+
+/* ---------- Header: white text, difference blend, reads on both halves ---------- */
+.lp-header {
+  position: fixed;
+  inset: 0 0 auto;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 24px;
+  color: #ffffff;
+  mix-blend-mode: difference;
+  pointer-events: none;
+}
+.lp-wordmark {
+  font-family: var(--display);
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.lp-pill {
+  padding: 5px 14px;
+  border: 1.5px solid #ffffff;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* ---------- Hero split ---------- */
+.lp-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+.lp-half {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 96px 24px 48px;
+}
+.lp-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  width: 100%;
+  max-width: 640px;
+  margin: 0 auto;
+}
+.lp-eyebrow {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--g3-ink);
+}
+.lp-dark .lp-eyebrow {
+  color: var(--g3);
+}
+.lp-h1 {
+  margin-top: 16px;
+  font-family: var(--display);
+  font-size: clamp(44px, 7vw, 96px);
+  font-weight: 800;
+  line-height: 0.95;
+  letter-spacing: -0.03em;
+  text-wrap: balance;
+}
+.lp-lead {
+  margin-top: 20px;
+  max-width: 34ch;
+  font-size: 20px;
+  line-height: 1.4;
+  color: #444444;
+}
+.lp-dark .lp-lead {
+  color: #bbbbbb;
+}
+
+/* Forms: pill input and pill button, 56px. */
+.lp-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  max-width: 440px;
+  margin-top: 32px;
+}
+.lp-input {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 56px;
+  padding: 0 20px;
+  border: 2px solid var(--black);
+  border-radius: 999px;
+  background: var(--white);
+  color: var(--black);
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+.lp-input::placeholder {
+  color: var(--g3-ink);
+  opacity: 1;
+}
+.lp-dark .lp-input {
+  border-color: var(--white);
+  letter-spacing: 0.14em;
+  background: transparent;
+  color: var(--white);
+}
+.lp-dark .lp-input::placeholder {
+  color: var(--g3);
+}
+.lp-error {
+  flex-basis: 100%;
+  min-height: 20px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* Buttons: the inverted fill sweeps in from the left (250ms), press 0.98. */
+.lp-btn {
+  --bg: var(--black);
+  --fg: var(--white);
+  --line: var(--black);
+  --sweep: var(--white);
+  --sweep-fg: var(--black);
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 56px;
+  padding: 0 24px;
+  border: 2px solid var(--line);
+  border-radius: 999px;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--display);
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    color 250ms ease,
+    transform 120ms ease-out;
+}
+.lp-btn::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: var(--sweep);
+  transform: translateX(-101%);
+  transition: transform 250ms cubic-bezier(0.65, 0, 0.35, 1);
+}
+.lp-btn:hover,
+.lp-btn:focus-visible {
+  color: var(--sweep-fg);
+}
+.lp-btn:hover::before,
+.lp-btn:focus-visible::before {
+  transform: translateX(0);
+}
+.lp-btn:not(:disabled):active {
+  transform: scale(0.98);
+}
+.lp-btn:disabled {
+  cursor: default;
+}
+.lp-btn-white {
+  --bg: var(--white);
+  --fg: var(--black);
+  --line: var(--white);
+  --sweep: var(--black);
+  --sweep-fg: var(--white);
+}
+.lp-btn-ghost {
+  --bg: transparent;
+  --fg: var(--white);
+  --line: var(--white);
+  --sweep: var(--white);
+  --sweep-fg: var(--black);
+}
+
+/* Illustrations: under the form; beside it from 1400px. On a phone the
+   phone mock rises from the bottom edge of the white half. */
+.lp-art {
+  display: flex;
+  justify-content: center;
+  margin-top: 48px;
+}
+.lp-art-phone {
+  align-items: flex-start;
+  height: 380px;
+  margin-bottom: -48px;
+  overflow: hidden;
+}
+@media (min-width: 1024px) {
+  .lp-split {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .lp-half {
+    min-height: 100svh;
+    padding: 120px 48px 64px;
+  }
+  .lp-header {
+    padding: 24px 48px;
+  }
+  .lp-art-phone {
+    height: auto;
+    margin-bottom: 0;
+    overflow: visible;
+  }
+  /* Both halves: a two-line heading and a 480px art area, so the centred
+     blocks line up across the split. */
+  .lp-hero .lp-h1 {
+    max-width: 8ch;
+  }
+  .lp-art-cards {
+    align-items: flex-start;
+    min-height: 480px;
+  }
+}
+@media (min-width: 1400px) {
+  .lp-hero {
+    grid-template-columns: minmax(0, 1fr) 248px;
+    grid-template-rows: auto auto auto auto 1fr;
+    column-gap: 32px;
+  }
+  .lp-eyebrow,
+  .lp-hero .lp-h1 {
+    grid-column: 1 / -1;
+  }
+  .lp-form {
+    align-self: start;
+  }
+  .lp-art {
+    grid-column: 2;
+    grid-row: 3 / 6;
+    justify-content: flex-end;
+    margin-top: 28px;
+  }
+}
+
+/* Phone mock, 240 x 480. */
+.lp-phone {
+  position: relative;
+  flex: none;
+  width: 240px;
+  height: 480px;
+  padding: 10px;
+  border: 2px solid var(--black);
+  border-radius: 32px;
+  background: var(--white);
+}
+.lp-notch {
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  width: 56px;
+  height: 8px;
+  margin-left: -28px;
+  border-radius: 99px;
+  background: var(--black);
+}
+.lp-screen {
+  height: 100%;
+  padding: 40px 16px 16px;
+  overflow: hidden;
+  border-radius: 22px;
+  background: var(--g1);
+}
+.lp-screen-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.lp-ph-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #444444;
+}
+.lp-ph-code {
+  display: flex;
+  align-items: center;
+  height: 48px;
+  margin-top: -4px;
+  padding: 0 14px;
+  overflow: hidden;
+  border: 2px solid var(--black);
+  border-radius: 12px;
+  background: var(--white);
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+.lp-ph-typed {
+  position: relative;
+  display: inline-block;
+  white-space: nowrap;
+}
+/* Covers the code and slides right one character per step; its left
+   border is the caret. */
+.lp-ph-cover {
+  position: absolute;
+  inset: -4px 0;
+  border-left: 2px solid var(--black);
+  border-radius: 0;
+  background: var(--white);
+  transform: translateX(100%);
+}
+.lp-ph-chip {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 8px;
+  height: 36px;
+  padding: 0 14px 0 4px;
+  border-radius: 999px;
+  background: var(--black);
+  color: var(--white);
+  font-size: 14px;
+  font-weight: 700;
+  transform-origin: 0 50%;
+}
+.lp-ph-avatar {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: var(--white);
+  color: var(--black);
+  font-size: 14px;
+  font-weight: 800;
+}
+.lp-ph-tasks {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.lp-ph-tasks li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 42px;
+  padding: 0 12px;
+  border-radius: 12px;
+  background: var(--white);
+  font-size: 14px;
+  font-weight: 600;
+}
+.lp-ph-badge {
+  position: relative;
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border: 2px solid var(--black);
+  border-radius: 999px;
+}
+.lp-ph-fill {
+  position: absolute;
+  inset: -2px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--black);
+  color: var(--white);
+  font-size: 14px;
+  font-weight: 800;
+}
+.lp-ph-sent {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 700;
+}
+.lp-ph-check {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  background: var(--black);
+  color: var(--white);
+  font-size: 14px;
+}
+
+/* Recruiter cards. */
+.lp-art-cards {
+  width: 100%;
+}
+.lp-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  max-width: 380px;
+}
+.lp-rc {
+  position: relative;
+  padding: 14px 16px;
+  border: 1px solid #333333;
+  border-radius: 16px;
+  background: var(--g4);
+}
+.lp-rc1::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border: 2px solid var(--white);
+  border-radius: inherit;
+  pointer-events: none;
+}
+.lp-rc-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.lp-rc-name {
+  font-size: 16px;
+  font-weight: 700;
+}
+.lp-rc-meta {
+  margin-top: 2px;
+  font-size: 14px;
+  line-height: 1.35;
+  color: var(--g3);
+}
+.lp-rc-invite {
+  flex: none;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: var(--white);
+  color: var(--black);
+  font-family: var(--display);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+/* ---------- 8s loops ---------- */
+.lp-reset {
+  animation: lp-reset 8s linear infinite;
+}
+.lp-ph-cover {
+  animation: lp-type 8s steps(7, end) infinite;
+}
+.lp-ph-chip {
+  animation: lp-chip 8s ease-out infinite;
+}
+.lp-b1 {
+  animation: lp-b1 8s ease-out infinite;
+}
+.lp-b2 {
+  animation: lp-b2 8s ease-out infinite;
+}
+.lp-b3 {
+  animation: lp-b3 8s ease-out infinite;
+}
+.lp-ph-sent {
+  animation: lp-sent 8s ease-out infinite;
+}
+.lp-rc1 {
+  animation: lp-c1 8s var(--ease) infinite;
+}
+.lp-rc2 {
+  animation: lp-c2 8s var(--ease) infinite;
+}
+.lp-rc3 {
+  animation: lp-c3 8s var(--ease) infinite;
+}
+.lp-rc1::after {
+  animation: lp-outline 8s ease-out infinite;
+}
+.lp-rc-invite {
+  animation: lp-invite 8s ease-out infinite;
+}
+@keyframes lp-reset {
+  0%, 92% { opacity: 1; }
+  96%, 100% { opacity: 0; }
+}
+@keyframes lp-type {
+  0%, 5% { transform: translateX(0); }
+  29%, 100% { transform: translateX(100%); }
+}
+@keyframes lp-chip {
+  0%, 33% { opacity: 0; transform: scale(0.6); }
+  38%, 100% { opacity: 1; transform: scale(1); }
+}
+@keyframes lp-b1 {
+  0%, 44% { transform: scale(0); }
+  48%, 100% { transform: scale(1); }
+}
+@keyframes lp-b2 {
+  0%, 52% { transform: scale(0); }
+  56%, 100% { transform: scale(1); }
+}
+@keyframes lp-b3 {
+  0%, 60% { transform: scale(0); }
+  64%, 100% { transform: scale(1); }
+}
+@keyframes lp-sent {
+  0%, 70% { opacity: 0; transform: translateY(6px); }
+  74%, 100% { opacity: 1; transform: none; }
+}
+@keyframes lp-c1 {
+  0%, 4% { opacity: 0; transform: translateX(32px); }
+  12%, 100% { opacity: 1; transform: none; }
+}
+@keyframes lp-c2 {
+  0%, 12% { opacity: 0; transform: translateX(32px); }
+  20%, 100% { opacity: 1; transform: none; }
+}
+@keyframes lp-c3 {
+  0%, 20% { opacity: 0; transform: translateX(32px); }
+  28%, 100% { opacity: 1; transform: none; }
+}
+@keyframes lp-outline {
+  0%, 38% { opacity: 0; }
+  43%, 100% { opacity: 1; }
+}
+@keyframes lp-invite {
+  0%, 46% { opacity: 0; transform: scale(0.8); }
+  50%, 56% { opacity: 1; transform: scale(1); }
+  60% { opacity: 1; transform: scale(1.12); }
+  64%, 100% { opacity: 1; transform: scale(1); }
+}
+
+/* Off screen: loops hold still. */
+.lp[data-motion] [data-io]:not([data-in]) *,
+.lp[data-motion] [data-io]:not([data-in]) *::after {
+  animation-play-state: paused;
+}
+
+/* ---------- Marquee ---------- */
+.lp-marquee {
+  overflow: hidden;
+  padding: 22px 0;
+  border-block: 1px solid #333333;
+}
+.lp-track {
+  display: flex;
+  width: max-content;
+  animation: lp-marquee 48s linear infinite;
+}
+.lp-marquee:hover .lp-track {
+  animation-play-state: paused;
+}
+.lp-marquee-list {
+  display: flex;
+  flex: none;
+}
+.lp-marquee-list li {
+  display: flex;
+  align-items: center;
+  font-family: var(--display);
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.lp-marquee-list li::after {
+  content: "·";
+  margin: 0 24px;
+  color: var(--g3);
+}
+@keyframes lp-marquee {
+  to { transform: translateX(-50%); }
+}
+
+/* ---------- Sections ---------- */
+.lp-section {
+  padding: 96px 0;
+}
+.lp-wrap {
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+.lp-h2 {
+  font-family: var(--display);
+  font-size: clamp(36px, 5vw, 64px);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  text-wrap: balance;
+}
+.lp-h3 {
+  font-family: var(--display);
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+.lp-body {
+  margin-top: 8px;
+  font-size: 16px;
+  line-height: 1.5;
+  color: #444444;
+}
+
+/* Reveal on scroll: fade + rise, staggered by --i. */
+.lp-reveal {
+  transition:
+    opacity 700ms ease-out,
+    translate 700ms var(--ease);
+  transition-delay: calc(var(--i, 0) * 120ms);
+}
+.lp[data-motion] [data-io]:not([data-seen]) .lp-reveal {
+  opacity: 0;
+  translate: 0 32px;
+}
+
+/* How it works. */
+.lp-steps {
+  display: grid;
+  gap: 48px;
+  margin-top: 56px;
+}
+.lp-step {
+  padding-top: 24px;
+  border-top: 2px solid var(--black);
+}
+.lp-step-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+.lp-num {
+  font-family: var(--display);
+  font-size: 72px;
+  font-weight: 800;
+  line-height: 0.9;
+  letter-spacing: -0.03em;
+  color: transparent;
+  -webkit-text-stroke: 2px var(--black);
+}
+.lp-icon {
+  width: 44px;
+  height: 44px;
+}
+/* Line icons draw themselves (pathLength = 1) once in view, staggered. */
+.lp-draw > * {
+  stroke-dasharray: 1 2;
+}
+.lp[data-motion] .lp-draw > * {
+  stroke-dashoffset: 1.5;
+  transition: stroke-dashoffset 900ms cubic-bezier(0.65, 0, 0.35, 1);
+  transition-delay: calc(var(--i, 0) * 150ms + 250ms);
+}
+.lp[data-motion] [data-seen] .lp-draw > * {
+  stroke-dashoffset: 0;
+}
+
+/* Why not a CV? */
+.lp-why {
+  display: grid;
+  gap: 72px;
+  margin-top: 64px;
+}
+.lp-why-col {
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+}
+.lp-cvs {
+  --spread: 34px;
+  position: relative;
+  height: 340px;
+}
+.lp-cv {
+  position: absolute;
+  top: 28px;
+  left: 50%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 220px;
+  height: 280px;
+  margin-left: -110px;
+  padding: 24px 20px;
+  border-radius: 14px;
+  background: var(--g1);
+  color: #444444;
+  font-size: 14px;
+  line-height: 1.4;
+}
+.lp-cv:nth-child(1) { transform: translateX(calc(var(--spread) * -1.5)) rotate(-8deg); }
+.lp-cv:nth-child(2) { transform: translateX(calc(var(--spread) * -0.5)) rotate(-3deg); }
+.lp-cv:nth-child(3) { transform: translateX(calc(var(--spread) * 0.5)) rotate(2deg); }
+.lp-cv:nth-child(4) { transform: translateX(calc(var(--spread) * 1.5)) rotate(7deg); }
+.lp-cv-bar {
+  display: block;
+  height: 10px;
+  border-radius: 99px;
+  background: var(--g2);
+}
+.lp-cv-name {
+  width: 55%;
+  height: 14px;
+  background: var(--g3);
+}
+.lp-cv-short {
+  width: 60%;
+}
+.lp-caption {
+  font-family: var(--display);
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  text-align: center;
+  text-wrap: balance;
+}
+.lp-answers {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 14px;
+  min-height: 340px;
+}
+.lp-answer {
+  padding: 18px 20px;
+  border: 1px solid #333333;
+  border-radius: 16px;
+  background: var(--g4);
+}
+.lp-answer:nth-child(2) {
+  margin-left: 24px;
+}
+.lp-answer:nth-child(3) {
+  margin-left: 48px;
+}
+.lp-answer-task {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--g3);
+}
+.lp-answer-text {
+  margin-top: 6px;
+  font-size: 16px;
+  line-height: 1.4;
+}
+.lp-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  font-size: 14px;
+  color: var(--g3);
+}
+.lp-chips span {
+  padding: 6px 12px;
+  border: 1px solid var(--white);
+  border-radius: 999px;
+  color: var(--white);
+  font-weight: 600;
+}
+.lp-answer-meta {
+  display: inline-flex;
+  margin-top: 10px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--white);
+  color: var(--black);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+/* Responsible by design: 1px cards, hover lifts 4px. */
+.lp-cards {
+  display: grid;
+  gap: 16px;
+  margin-top: 56px;
+}
+.lp-card {
+  padding: 28px 24px 32px;
+  border: 1px solid var(--g2);
+  border-radius: 20px;
+  background: var(--white);
+  transition:
+    opacity 700ms ease-out,
+    translate 700ms var(--ease),
+    transform 200ms ease-out;
+  transition-delay: calc(var(--i, 0) * 120ms), calc(var(--i, 0) * 120ms), 0ms;
+}
+.lp-card::before {
+  content: "";
+  display: block;
+  width: 28px;
+  height: 2px;
+  margin-bottom: 24px;
+  border-radius: 0;
+  background: var(--black);
+}
+.lp-card:hover {
+  transform: translateY(-4px);
+}
+.lp-note {
+  margin-top: 32px;
+  font-size: 14px;
+  color: var(--g3-ink);
+}
+
+/* Final call to action and footer. */
+.lp-final {
+  text-align: center;
+}
+.lp-final .lp-h1 {
+  max-width: 12ch;
+  margin: 0 auto;
+}
+.lp-cta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 40px;
+}
+.lp-footer {
+  padding: 28px 24px 40px;
+  border-top: 1px solid #333333;
+  color: #bbbbbb;
+  font-size: 14px;
+  text-align: center;
+}
+
+@media (min-width: 640px) {
+  .lp-steps,
+  .lp-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .lp-steps {
+    column-gap: 32px;
+  }
+}
+@media (min-width: 1024px) {
+  .lp-section {
+    padding: 144px 0;
+  }
+  .lp-wrap {
+    padding: 0 48px;
+  }
+  .lp-steps,
+  .lp-cards {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .lp-why {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 64px;
+  }
+  .lp-cvs {
+    --spread: 54px;
+  }
+}

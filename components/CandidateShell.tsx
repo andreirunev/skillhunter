@@ -27,7 +27,7 @@ export function CandidateShell({ lang: initial, company, showLang = true, childr
         <header className="sticky top-0 z-10 border-b border-border bg-bg">
           <div className="mx-auto flex max-w-md items-center gap-2 px-4 py-2">
             <div className="min-w-0 flex-1 text-[11px] font-semibold uppercase leading-tight tracking-[0.08em] text-muted">
-              <p className="truncate">{company?.name ?? "SkillHunter"}</p>
+              <p className="truncate">{company?.name ?? "SkillScan"}</p>
               {company && <p className="truncate">{t(lang, "booth", { booth: company.booth })}</p>}
             </div>
             {showLang && <>
