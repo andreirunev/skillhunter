@@ -45,8 +45,8 @@ const LABEL = "text-[11px] font-semibold uppercase tracking-[0.08em] text-muted"
 const INPUT = "min-h-11 w-full border border-border bg-bg px-3 text-base text-fg outline-none placeholder:text-muted focus:border-fg/40";
 const ICON_BTN = "tap inline-flex size-11 items-center justify-center border border-border bg-card text-fg disabled:opacity-40";
 const OPTION = "ui-btn ui-btn-secondary min-h-12 justify-start py-2 text-left text-base";
-const LONG_SEC = 12 * 60;
-const MAX_TASKS = 8;
+const LONG_SEC = 20 * 60;
+const MAX_TASKS = 10;
 const UNDO_MS = 5000;
 // Error codes from publishTest that have their own message.
 const PUBLISH_ERRORS = ["missing_title", "bad_time_limit", "bad_duty_count", "missing_task", "empty_guide", "bad_key"];

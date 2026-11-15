@@ -35,7 +35,7 @@ export type Panel = { title: string; fields?: Field[]; lines?: string[]; ref?: b
 export type SimPayload = {
   prompt: string;
   items?: Item[]; // triage
-  panels?: Panel[]; // spot_error (tappable fields), next_step (situation)
+  panels?: Panel[]; // spot_error (tappable fields), next_step and read_decide (situation, code, rules)
   rules?: string[]; // apply_rule
   case?: string; // apply_rule
   table?: { columns: string[]; rows: string[][] }; // read_decide
@@ -76,6 +76,30 @@ export type SimTask = {
 // What the candidate's phone gets: no key, no guide.
 export type PlayerTask = { id: string; format: Format; duty: string; title: string; payload: AnyPayload };
 export const toPlayerTask = (t: SimTask): PlayerTask => ({ id: t.id, format: t.format, duty: t.duty, title: t.title, payload: t.payload });
+
+// Per-candidate option order: a stable shuffle seeded by the attempt and the
+// task, so a reload shows the same order and the recruiter's replay matches
+// what the candidate saw. Answers and keys are option ids, so nothing else
+// depends on the order.
+export function shuffleOptions(task: PlayerTask, seed: string): PlayerTask {
+  const p = task.payload as SimPayload;
+  if (task.format === "quick_logic" || !p.options || p.options.length < 2) return task;
+  let h = 2166136261;
+  for (const ch of `${seed}:${task.id}`) h = Math.imul(h ^ ch.charCodeAt(0), 16777619);
+  h |= 1;
+  const next = () => {
+    h ^= h << 13;
+    h ^= h >>> 17;
+    h ^= h << 5;
+    return (h >>> 0) / 4294967296;
+  };
+  const options = [...p.options];
+  for (let i = options.length - 1; i > 0; i--) {
+    const j = Math.floor(next() * (i + 1));
+    [options[i], options[j]] = [options[j], options[i]];
+  }
+  return { ...task, payload: { ...p, options } };
+}
 
 // Library entry (task_library row).
 export type LibraryTask = Omit<SimTask, "id" | "library_id" | "duty"> & {

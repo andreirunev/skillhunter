@@ -10,7 +10,7 @@ import { TaskNotes } from "@/components/TaskNotes";
 import { AvatarTile } from "@/components/ui/ListRow";
 import { joinSep } from "@/components/ui/Sep";
 import { getCandidate, getCompany, type DetailTask } from "@/lib/recruiter";
-import { compareLabel, describeSim, toPlayerTask, type SimPayload } from "@/lib/sim";
+import { compareLabel, describeSim, shuffleOptions, toPlayerTask, type SimPayload } from "@/lib/sim";
 import { GENERIC_FOLLOW_UPS } from "@/lib/tasks";
 import { formatClock, formatDuration, formatMinutes, LANG_SHORT } from "@/lib/format";
 
@@ -137,7 +137,7 @@ function TaskCard({ task: t, index, attemptId, finished, limitReached }: {
             <ChevronDown className="size-4" aria-hidden />Show the task as the candidate saw it
           </summary>
           <div className="mt-2 border border-dashed border-border p-3">
-            <SimTaskReplay task={toPlayerTask(t)} value={hasAnswer ? t.answer : undefined} />
+            <SimTaskReplay task={shuffleOptions(toPlayerTask(t), attemptId)} value={hasAnswer ? t.answer : undefined} />
           </div>
         </details>
       </div>

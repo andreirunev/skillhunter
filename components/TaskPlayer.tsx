@@ -33,22 +33,16 @@ export function TaskPlayer({ attempt, tasks, saved }: Props) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(false);
 
-  // Countdown to the server deadline (started_at + limit), counted from the
-  // server's remaining time so the phone's clock does not matter. The server
-  // enforces the limit; this only shows it and leaves when it has passed.
+  // Countdown to the soft limit (started_at + limit), counted from the
+  // server's remaining time so the phone's clock does not matter. Past it the
+  // timer counts the time over and the candidate can still answer and submit;
+  // the server closes the attempt only at its hard cap (a save then gets 409).
   const [leftMs, setLeftMs] = useState(attempt.remaining_ms);
   useEffect(() => {
     const endAt = Date.now() + attempt.remaining_ms;
-    const timer = setInterval(() => {
-      const left = endAt - Date.now();
-      setLeftMs(Math.max(0, left));
-      if (left < -1500) {
-        clearInterval(timer);
-        router.replace(`/t/${attempt.id}/done`);
-      }
-    }, 500);
+    const timer = setInterval(() => setLeftMs(endAt - Date.now()), 500);
     return () => clearInterval(timer);
-  }, [attempt.id, attempt.remaining_ms, router]);
+  }, [attempt.remaining_ms]);
 
   // Time on each task accumulates across visits; only time on screen counts.
   const timeMs = useRef<Record<string, number>>(Object.fromEntries(saved.map((s) => [s.task_id, s.time_ms])));
@@ -137,7 +131,7 @@ export function TaskPlayer({ attempt, tasks, saved }: Props) {
         <div className="flex items-center justify-between text-[13px] font-semibold text-muted">
           <span>{t(lang, "progress", { i: index + 1, n: tasks.length })}</span>
           <span role="timer" className={`tabular-nums ${leftMs < 120_000 ? "text-warn" : ""}`}>
-            {t(lang, "timeLeft", { time: clock(leftMs) })}
+            {leftMs >= 0 ? t(lang, "timeLeft", { time: clock(leftMs) }) : t(lang, "timeOver", { time: clock(-leftMs) })}
           </span>
         </div>
         <div className="mt-2 h-1 overflow-hidden rounded-pill bg-track" role="progressbar" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100}>

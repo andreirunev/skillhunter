@@ -8,14 +8,16 @@ import { compareSim, type QuickPayload, type SimPayload, type SimTask } from "./
 import { DEFAULT_TIME_LIMIT, legacyTasks, listTemplates, publishTest, seedLibrary } from "./sim-store.ts";
 import type { Answer, AnswerKey, TaskPayload, TaskType } from "./tasks.ts";
 
-// Fictional companies, one per sector, so every trade is visible in the demo.
-// `role`: the role template published as the company's job simulation. The
-// others keep the older abstract task list, which still works.
-export const DEMO_COMPANIES = [
-  { slug: "kirkas", name: "Kirkas Clean", sector: "cleaning", booth: "A12", color: "#0EA5E9", test: "Cleaning crew: practical check", role: null },
-  { slug: "silta", name: "Silta Build & Weld", sector: "construction", booth: "B04", color: "#F97316", test: "Site & welding basics", role: null },
-  { slug: "kulku", name: "Kulku Logistics", sector: "logistics", booth: "C07", color: "#10B981", test: "Warehouse & delivery check", role: "warehouse" },
-  { slug: "pilvi", name: "Pilvi Code", sector: "it", booth: "D03", color: "#8B5CF6", test: "Junior developer check", role: "junior-developer" },
+// Fictional companies, one per role, so several trades are visible in the
+// demo. `role`: the role template published as the company's contest (its
+// title is `test`). A company with `role: null` keeps the older abstract
+// task list of its sector pack, which still works.
+export const DEMO_COMPANIES: { slug: string; name: string; sector: string; booth: string; color: string; test: string; role: string | null }[] = [
+  { slug: "kirkas", name: "Kirkas Home Care", sector: "care", booth: "A12", color: "#0EA5E9", test: "Practical Nurse (elderly and home care)", role: "practical-nurse" },
+  { slug: "silta", name: "Silta Store", sector: "retail", booth: "B04", color: "#F97316", test: "Customer Service & Sales Associate", role: "customer-service-sales" },
+  { slug: "kulku", name: "Kulku Logistics", sector: "logistics", booth: "C07", color: "#10B981", test: "Warehouse & Logistics Specialist", role: "warehouse-logistics" },
+  { slug: "pilvi", name: "Pilvi Code", sector: "it", booth: "D03", color: "#8B5CF6", test: "Software Developer", role: "software-developer" },
+  { slug: "leikki", name: "Leikki Daycare", sector: "education", booth: "E02", color: "#EC4899", test: "Early Childhood Educator", role: "early-childhood-educator" },
 ];
 
 // Each older demo test = the company's sector pack + three general tasks.
@@ -137,13 +139,11 @@ export async function seed(sql: postgres.Sql, { fresh = false } = {}) {
       await sql`UPDATE tests SET title = ${c.test}, live_version = 0 WHERE id = ${test.id}::uuid`;
     }
 
-    // Older task list (kept for every company; the fallback before publishing).
+    // Older task list, only for a company without a role (its sector pack).
     const [{ count }] = await sql<{ count: number }[]>`SELECT count(*)::int AS count FROM test_tasks WHERE test_id = ${test.id}::uuid`;
-    const defs = [
-      ...PACKS.find((p) => p.sector === c.sector)!.tasks,
-      ...GENERAL_MIX.map((id) => libraryTask(id)!),
-    ];
-    if (count === 0) {
+    const pack = c.role ? undefined : PACKS.find((p) => p.sector === c.sector);
+    const defs = pack ? [...pack.tasks, ...GENERAL_MIX.map((id) => libraryTask(id)!)] : [];
+    if (count === 0 && defs.length > 0) {
       const rows = defs.map((t, position) => ({
         id: randomUUID(),
         test_id: test.id,
@@ -166,7 +166,7 @@ export async function seed(sql: postgres.Sql, { fresh = false } = {}) {
       if (live_version === 0) {
         await publishTest(sql, company.id, test.id, {
           roleSlug: template.slug,
-          title: `${template.name}: job simulation`,
+          title: c.test,
           timeLimit: DEFAULT_TIME_LIMIT,
           englishRequired: false,
           duties: template.duties.map((d) => ({ title: d.title, libraryId: d.task_id })),
@@ -193,7 +193,7 @@ export async function seed(sql: postgres.Sql, { fresh = false } = {}) {
       JOIN company_tests ct ON ct.test_id = t.id AND ct.version = t.live_version
       WHERE t.id = ${test.id}::uuid`;
     const tasks = live ? live.tasks : await legacyTasks(test.id, sql);
-    if (!live && tasks.length !== defs.length) continue;
+    if (!live && (defs.length === 0 || tasks.length !== defs.length)) continue;
 
     const rand = rng(c.slug);
     const now = Date.now();

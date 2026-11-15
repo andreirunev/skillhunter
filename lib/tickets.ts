@@ -33,6 +33,9 @@ const SECTORS: Record<string, string> = {
   construction: "Construction & welding",
   logistics: "Logistics",
   it: "IT",
+  care: "Home care",
+  retail: "Retail",
+  education: "Early childhood education",
   general: "General",
 };
 

@@ -10,7 +10,7 @@ import { attemptTasks, DEFAULT_TIME_LIMIT } from "./sim-store.ts";
 import type { Lang } from "./i18n.ts";
 import type { TicketTemplate } from "./tickets.ts";
 import { isInviteCode, normalizeInviteCode, type Contact, type RecruiterStage, type Stage } from "./stage.ts";
-import { closeExpiredForCompany } from "./timing.ts";
+import { CLOSE_AFTER_LIMITS, closeExpiredForCompany } from "./timing.ts";
 
 // Recruiter-side data. Demo access is by company slug; a real deployment puts
 // staff login in front of this. Nothing here scores, ranks or sorts by results.
@@ -55,7 +55,7 @@ export type CandidateRow = {
   answered: number;
   task_count: number; // of the version this candidate got
   total_ms: number; // finished_at - started_at, server timestamps (0 while in progress)
-  limit_reached: boolean; // closed at the deadline
+  limit_reached: boolean; // closed at the hard cap (CLOSE_AFTER_LIMITS)
   invited: boolean; // has an interview code (the code itself never reaches the recruiter)
   code_verified: boolean; // the recruiter typed the right code in the last 30 minutes
   stage: Stage;
@@ -81,7 +81,7 @@ export async function listCandidates(companyId: string): Promise<CandidateRow[]>
       coalesce((SELECT jsonb_array_length(tasks) FROM company_tests WHERE id = a.company_test_id),
         (SELECT count(*)::int FROM test_tasks WHERE test_id = a.test_id)) AS task_count,
       coalesce(extract(epoch from (a.finished_at - a.started_at)) * 1000, 0)::int AS total_ms,
-      coalesce(a.finished_at >= a.started_at + make_interval(mins => a.time_limit_minutes), false) AS limit_reached,
+      coalesce(a.finished_at >= a.started_at + make_interval(mins => a.time_limit_minutes * ${CLOSE_AFTER_LIMITS}::int), false) AS limit_reached,
       i.attempt_id IS NOT NULL AS invited,
       coalesce(i.code_verified_at > now() - make_interval(mins => ${VERIFY_MINUTES}), false) AS code_verified, a.stage, a.contact,
       coalesce((SELECT title FROM company_tests WHERE id = a.company_test_id), t.title) AS contest_title
@@ -112,7 +112,7 @@ export async function getCandidate(companyId: string, attemptId: string) {
     SELECT a.id, a.avatar_name, a.avatar_emoji, a.avatar_color, a.lang, a.status, a.time_limit_minutes,
       a.started_at, a.finished_at,
       coalesce(extract(epoch from (a.finished_at - a.started_at)) * 1000, 0)::int AS total_ms,
-      coalesce(a.finished_at >= a.started_at + make_interval(mins => a.time_limit_minutes), false) AS limit_reached,
+      coalesce(a.finished_at >= a.started_at + make_interval(mins => a.time_limit_minutes * ${CLOSE_AFTER_LIMITS}::int), false) AS limit_reached,
       i.attempt_id IS NOT NULL AS invited,
       coalesce(i.code_verified_at > now() - make_interval(mins => ${VERIFY_MINUTES}), false) AS code_verified, a.stage, a.contact
     FROM attempts a LEFT JOIN invitations i ON i.attempt_id = a.id

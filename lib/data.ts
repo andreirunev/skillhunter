@@ -4,11 +4,11 @@ import { isCodeShape, makeToken } from "./codes.ts";
 import { makeAvatar } from "./avatar.ts";
 import { computeFlags, type FlagCode } from "./flags.ts";
 import type { Answer } from "./tasks.ts";
-import { compareSim, isAnsweredSim, toPlayerTask, type PlayerTask } from "./sim.ts";
+import { compareSim, isAnsweredSim, shuffleOptions, toPlayerTask, type PlayerTask } from "./sim.ts";
 import { attemptTasks, DEFAULT_TIME_LIMIT } from "./sim-store.ts";
 import type { Lang } from "./i18n.ts";
 import type { Contact, Stage } from "./stage.ts";
-import { closeIfExpired } from "./timing.ts";
+import { CLOSE_AFTER_LIMITS, closeIfExpired } from "./timing.ts";
 
 // Data access for the candidate flow. Nothing here returns an answer key,
 // a flag or a recruiter label to the candidate side.
@@ -148,7 +148,7 @@ export type PlayerAttempt = {
   id: string;
   lang: Lang;
   finished: boolean;
-  remaining_ms: number; // until the deadline, measured on the server
+  remaining_ms: number; // until the soft limit, measured on the server; negative = over it
   avatar_name: string;
   avatar_emoji: string;
   avatar_color: string;
@@ -165,7 +165,7 @@ export async function getPlayerData(attemptId: string) {
   const sql = db();
   const [attempt] = await sql<PlayerAttempt[]>`
     SELECT a.id, a.lang, a.finished_at IS NOT NULL AS finished,
-      greatest(0, extract(epoch from (a.started_at + make_interval(mins => a.time_limit_minutes) - now())) * 1000)::int AS remaining_ms,
+      (extract(epoch from (a.started_at + make_interval(mins => a.time_limit_minutes) - now())) * 1000)::int AS remaining_ms,
       a.avatar_name, a.avatar_emoji, a.avatar_color,
       c.name AS company_name, c.booth, c.color AS company_color
     FROM attempts a JOIN tests t ON t.id = a.test_id JOIN companies c ON c.id = t.company_id
@@ -175,8 +175,9 @@ export async function getPlayerData(attemptId: string) {
     attemptTasks(attemptId),
     sql<SavedAnswer[]>`SELECT task_id, answer, time_ms, changes FROM answers WHERE attempt_id = ${attemptId}::uuid`,
   ]);
-  // Keys and the interview guide stay on the server.
-  const playerTasks: PlayerTask[] = (tasks ?? []).map(toPlayerTask);
+  // Keys and the interview guide stay on the server. Options are shuffled
+  // per attempt.
+  const playerTasks: PlayerTask[] = (tasks ?? []).map((t) => shuffleOptions(toPlayerTask(t), attemptId));
   return { attempt, tasks: playerTasks, answers: [...answers] };
 }
 
@@ -193,13 +194,13 @@ export async function saveAnswer(
   const sql = db();
   const [ctx] = await sql<{ finished: boolean; expired: boolean }[]>`
     SELECT finished_at IS NOT NULL AS finished,
-      now() > started_at + make_interval(mins => time_limit_minutes) AS expired
+      now() > started_at + make_interval(mins => time_limit_minutes * ${CLOSE_AFTER_LIMITS}::int) AS expired
     FROM attempts WHERE id = ${attemptId}::uuid`;
   // Only a task of this attempt's own version counts.
   const task = ctx ? (await attemptTasks(attemptId))?.find((x) => x.id === taskId) : undefined;
   if (!ctx || !task) return "not_found";
   if (ctx.finished) return "finished";
-  // Past the deadline: close the attempt and refuse the answer (409).
+  // Past the hard cap: close the attempt and refuse the answer (409).
   if (ctx.expired) {
     await closeIfExpired(attemptId);
     return "finished";
@@ -220,12 +221,12 @@ export async function saveAnswer(
   return "ok";
 }
 
-// "Finish" before the deadline: finished_at = now. A late call still stops
-// the clock at the deadline.
+// "Finish": finished_at = now, also after the soft limit. A call after the
+// hard cap still stops the clock at the cap.
 export async function finishAttempt(attemptId: string): Promise<boolean> {
   if (!isUuid(attemptId)) return false;
   const rows = await db()`
-    UPDATE attempts SET finished_at = coalesce(finished_at, least(now(), started_at + make_interval(mins => time_limit_minutes)))
+    UPDATE attempts SET finished_at = coalesce(finished_at, least(now(), started_at + make_interval(mins => time_limit_minutes * ${CLOSE_AFTER_LIMITS}::int)))
     WHERE id = ${attemptId}::uuid RETURNING id`;
   return rows.length > 0;
 }
@@ -237,7 +238,7 @@ export async function getInvitationView(attemptId: string) {
   await closeIfExpired(attemptId);
   const [row] = await db()<{ lang: Lang; booth: string; company_name: string; finished: boolean; limit_reached: boolean; code: string | null; stage: Stage }[]>`
     SELECT a.lang, c.booth, c.name AS company_name, a.finished_at IS NOT NULL AS finished, a.stage,
-      coalesce(a.finished_at >= a.started_at + make_interval(mins => a.time_limit_minutes), false) AS limit_reached, i.code
+      coalesce(a.finished_at >= a.started_at + make_interval(mins => a.time_limit_minutes * ${CLOSE_AFTER_LIMITS}::int), false) AS limit_reached, i.code
     FROM attempts a
     JOIN tests t ON t.id = a.test_id JOIN companies c ON c.id = t.company_id
     LEFT JOIN invitations i ON i.attempt_id = a.id

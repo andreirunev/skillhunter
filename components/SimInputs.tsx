@@ -171,6 +171,7 @@ export function DataView({ payload }: { payload: SimPayload }) {
 function ReadDecideInput(props: InputProps) {
   return (
     <div className="flex flex-col gap-4">
+      {(props.payload.panels ?? []).map((pn) => <PanelCard key={pn.title} panel={pn} />)}
       <DataView payload={props.payload} />
       {props.payload.question && <p className="text-base font-semibold leading-snug">{props.payload.question}</p>}
       <Options {...props} />

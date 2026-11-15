@@ -10,9 +10,11 @@ import { SKILLS, type AnswerKey, type Skill, type TaskPayload, type TaskType } f
 
 export const DEFAULT_TIME_LIMIT = 20;
 export const TIME_LIMIT_RANGE = { min: 5, max: 60 };
-export const DUTY_RANGE = { min: 1, max: 8 };
+export const DUTY_RANGE = { min: 1, max: 10 };
 
 // Upserted by the seed, so edits to lib/sim-library.ts reach the database.
+// Library tasks and templates no longer in the code are removed; published
+// contests keep their own frozen copies, so no attempt loses its tasks.
 export async function seedLibrary(sql: postgres.Sql) {
   const rows = LIBRARY_TASKS.map((t) => ({
     id: t.id,
@@ -38,6 +40,8 @@ export async function seedLibrary(sql: postgres.Sql) {
       skill_tag = EXCLUDED.skill_tag, skill_kind = EXCLUDED.skill_kind, expected_seconds = EXCLUDED.expected_seconds,
       payload = EXCLUDED.payload, key = EXCLUDED.key, key_kind = EXCLUDED.key_kind, good_looks_like = EXCLUDED.good_looks_like,
       not_measure_note = EXCLUDED.not_measure_note, followups = EXCLUDED.followups, default_order = EXCLUDED.default_order`;
+  await sql`DELETE FROM task_library WHERE id NOT IN ${sql(LIBRARY_TASKS.map((t) => t.id))}`;
+  await sql`DELETE FROM role_templates WHERE slug NOT IN ${sql(ROLE_TEMPLATES.map((r) => r.slug))}`;
   for (const r of ROLE_TEMPLATES) {
     await sql`
       INSERT INTO role_templates (slug, name, summary, duties)
