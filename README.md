@@ -1,8 +1,12 @@
 # SkillHunter
 
+Skill-first recruitment for offline job fairs, built at Junction 2026 for the City of Espoo challenge "Rethinking Recruitment".
+
+**Live demo:** https://skillscan-lovat.vercel.app/
+
 Show your skills, not your CV. At a job fair a candidate gets a single-use booth code, solves short job-simulation tasks under an anonymous avatar, and the recruiter sees the answers (not a score) before inviting them to a live follow-up at the booth. A human makes every decision.
 
-Built at Junction 2026 for the City of Espoo challenge "Rethinking Recruitment". Demo data is synthetic.
+All demo data is synthetic.
 
 ## Responsible design
 
