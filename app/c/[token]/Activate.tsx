@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import Link from "@/components/TransitionLink";
-import { useFlagNav } from "@/components/TransitionProvider";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useLang } from "@/components/CandidateShell";
 import { FlagMini } from "@/components/FlagLoader";
 import { AvatarTile } from "@/components/ui/ListRow";
@@ -23,7 +23,7 @@ type Props = {
 // Start screen. The avatar was assigned when the code was entered and cannot
 // be changed here. Pressing Start starts the clock on the server.
 export function Activate({ token, state, avatar, taskCount, minutes, limitMinutes, englishRequired }: Props) {
-  const router = useFlagNav();
+  const router = useRouter();
   const lang = useLang();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);

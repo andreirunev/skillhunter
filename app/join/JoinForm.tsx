@@ -1,9 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "@/components/TransitionLink";
+import Link from "next/link";
 import { useLang } from "@/components/CandidateShell";
-import { useFlagNav } from "@/components/TransitionProvider";
 import { FlagMini } from "@/components/FlagLoader";
 import { t } from "@/lib/i18n";
 
@@ -17,7 +16,6 @@ export function JoinForm({ initialCode, error, continueHref }: {
   // Controlled, so the code stays in the box after an error and can be fixed.
   const [code, setCode] = useState(initialCode);
   const [pending, setPending] = useState(false);
-  const nav = useFlagNav();
 
   // Safari restores this page from the back-forward cache: un-stick the button.
   useEffect(() => {
@@ -32,10 +30,7 @@ export function JoinForm({ initialCode, error, continueHref }: {
         <h1 className="text-[28px] font-bold leading-tight tracking-tight">{t(lang, "joinTitle")}</h1>
         <p className="mt-1 text-[15px] text-muted">{t(lang, "joinHint")}</p>
       </div>
-      <form method="post" action="/api/join" onSubmit={() => {
-        setPending(true);
-        nav.coverForReload();
-      }} className="flex flex-col gap-3">
+      <form method="post" action="/api/join" onSubmit={() => setPending(true)} className="flex flex-col gap-3">
         <label htmlFor="code" className="text-sm font-semibold">{t(lang, "codeLabel")}</label>
         <input
           id="code"

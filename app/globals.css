@@ -100,47 +100,33 @@
   }
 }
 
-/* Finnish flag tokens: landing, route wipe, loader. */
+/* Flag blue: the landing candidate half. */
 :root {
   --blue: #003580;
-  --white: #ffffff;
-  --navy: #00204d;
-  --tint: #e6edf7;
 }
 @theme inline {
   --color-flag-blue: var(--blue);
-  --color-flag-navy: var(--navy);
-  --color-flag-tint: var(--tint);
+  --font-display: var(--font-bricolage), ui-sans-serif, system-ui, sans-serif;
 }
 
-/* Landing page (/) identity, scoped to [data-landing]: flag blue and white,
-   navy ink; Bricolage Grotesque headlines and buttons (next/font variable set
-   on the page), system UI body. Light only. */
-@theme inline {
-  --color-paper: var(--paper);
-  --color-sheet: var(--sheet);
-  --color-ink: var(--ink);
-  --color-espoo: var(--espoo);
-  --font-display: var(--font-bricolage), ui-sans-serif, system-ui, sans-serif;
-  /* Entrance: fade + 8px rise, 200ms; blocks set their own delay. */
-  --animate-enter: rise 200ms ease-out both;
-}
+/* Landing page (/): two fixed halves in both themes, flag blue (candidate)
+   and the dark-theme near-black (recruiter); Bricolage Grotesque headlines
+   and buttons (next/font variable set on the page), system UI body. The
+   shared header controls (ThemeToggle, LangSelect) sit on blue or black, so
+   the scope gives them the dark skin tokens. */
 [data-landing] {
-  --paper: var(--white);
-  --sheet: var(--white);
-  --ink: var(--navy);
-  --espoo: var(--blue);
-  /* Height of the blue candidate half; the intro draws its cross to this line. */
-  --seam: 62svh;
-  /* Bar thickness of the cross (intro, and the tab under the blue half). */
-  --bar: clamp(44px, 11vmin, 88px);
-  color-scheme: light;
-  background: var(--paper);
-  color: var(--ink);
+  --rec: #0b0b0c;
+  --card: #161618;
+  --border: rgb(255 255 255 / 0.3);
+  --text: #f5f5f5;
+  --muted: rgb(255 255 255 / 0.72);
+  --track: rgb(255 255 255 / 0.1);
+  color-scheme: dark;
+  color: #ffffff;
   font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 body:has([data-landing]) {
-  background: #ffffff;
+  background: #0b0b0c;
 }
 
 /* Design tokens for the skinned pages (recruiter + candidate), scoped to
@@ -358,148 +344,9 @@ a[role="button"],
   100% { opacity: 0; }
 }
 
-/* ---------- Flag motion (lib/motion.ts) ---------- */
-
-/* Route wipe (components/TransitionProvider.tsx). Two full-bleed bars: the
-   horizontal one sweeps in from the left and then grows to flood the screen;
-   the vertical one (at ~36%, like the flag) sweeps down. Reveal plays the same
-   keyframes in reverse. Transform only. Clicks pass through except while the
-   screen is covered. */
-.ft {
-  position: fixed;
-  inset: 0;
-  z-index: 1000;
-  display: none;
-  overflow: hidden;
-  pointer-events: none;
-  view-transition-name: ft-bars;
-  --ft-bar: 16vmin;
-  --ft-ease: cubic-bezier(0.65, 0, 0.35, 1);
-}
-.ft[data-phase="cover"],
-.ft[data-phase="hold"],
-.ft[data-phase="reveal"],
-html[data-ft="in"] .ft {
-  display: block;
-}
-.ft[data-phase="cover"],
-.ft[data-phase="hold"] {
-  pointer-events: auto;
-}
-.ft-h,
-.ft-v {
-  position: absolute;
-  background: var(--blue);
-  will-change: transform;
-}
-.ft-h {
-  left: 0;
-  right: 0;
-  top: calc(50% - var(--ft-bar) / 2);
-  height: var(--ft-bar);
-  transform-origin: 0 50%;
-  transform: scale(0, 1);
-}
-.ft-v {
-  top: 0;
-  bottom: 0;
-  left: calc(36% - var(--ft-bar) / 2);
-  width: var(--ft-bar);
-  transform-origin: 50% 0;
-  transform: scale(1, 0);
-}
-.ft[data-phase="cover"] .ft-h {
-  animation: ft-h 350ms var(--ft-ease) both;
-}
-.ft[data-phase="cover"] .ft-v {
-  animation: ft-v 350ms var(--ft-ease) both;
-}
-.ft[data-phase="hold"] .ft-h {
-  transform: scale(1, 14);
-}
-.ft[data-phase="hold"] .ft-v {
-  transform: scale(1, 1);
-}
-.ft[data-phase="reveal"] .ft-h,
-html[data-ft="in"] .ft-h {
-  animation: ft-h 350ms var(--ft-ease) reverse both;
-}
-.ft[data-phase="reveal"] .ft-v,
-html[data-ft="in"] .ft-v {
-  animation: ft-v 350ms var(--ft-ease) reverse both;
-}
-/* After a form POST the new document holds the flood a moment, then reveals. */
-html[data-ft="in"] .ft-h,
-html[data-ft="in"] .ft-v {
-  animation-delay: 120ms;
-}
-@keyframes ft-h {
-  0% { transform: scale(0, 1); }
-  55% { transform: scale(1, 1); }
-  100% { transform: scale(1, 14); }
-}
-@keyframes ft-v {
-  0%, 25% { transform: scale(1, 0); }
-  75%, 100% { transform: scale(1, 1); }
-}
-/* Slow route: the loader shows on the blue flood after 250ms. */
-.ft-mark {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  opacity: 0;
-  animation: ft-show 200ms 250ms ease-out both;
-}
-@keyframes ft-show {
-  to { opacity: 1; }
-}
-
-/* View transitions (React <ViewTransition>, navigations tagged "ft-nav"):
-   the page crossfades in 150ms under the bars; the bars stay live on top and
-   the rest of the root does not animate. */
-::view-transition-group(root),
-::view-transition-old(root),
-::view-transition-new(root),
-::view-transition-group(ft-bars),
-::view-transition-new(ft-bars),
-::view-transition-group(.ft-fade) {
-  animation: none;
-}
-::view-transition-old(ft-bars) {
-  display: none;
-}
-::view-transition-old(.ft-fade) {
-  animation: 150ms ease-out both ft-fade-out;
-}
-::view-transition-new(.ft-fade) {
-  animation: 150ms ease-out both ft-fade-in;
-}
-@keyframes ft-fade-out {
-  to { opacity: 0; }
-}
-@keyframes ft-fade-in {
-  from { opacity: 0; }
-}
-
-/* Branded loader (components/FlagLoader.tsx): flag-proportioned (18:11) box,
-   vertical bar at 5/18-8/18, horizontal at 4/11-7/11. Both bars grow out of
-   the crossing and retract; a faint full cross stays as the track. */
-.fl {
-  display: inline-flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  color: var(--blue);
-}
-.fl[data-tone="white"] {
-  color: #ffffff;
-}
-[data-theme="dark"] [data-skin] .fl[data-tone="blue"] {
-  color: #8fb3ec;
-}
-.fl-md { --fl-w: 56px; }
-.fl-lg { --fl-w: 72px; }
+/* Busy mark in buttons (components/FlagLoader.tsx, FlagMini): flag-proportioned
+   (18:11) box, vertical bar at 5/18-8/18, horizontal at 4/11-7/11. Both bars
+   grow out of the crossing and retract; a faint full cross stays as the track. */
 .fl-mini {
   --fl-w: 1.35em;
   display: inline-flex;
@@ -555,117 +402,6 @@ html[data-ft="in"] .ft-v {
   0%, 12% { transform: scaleY(0); }
   50%, 70% { transform: scaleY(1); }
   100% { transform: scaleY(0); }
-}
-.fl-caption {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--muted, #475569);
-}
-
-/* Landing intro (app/Intro.tsx), once per session: on white, a horizontal bar
-   draws in from the left at the seam and a vertical one from the top; the
-   horizontal bar then fills upward into the blue candidate half, the vertical
-   one stays as the tab under it, and the overlay fades onto the real page,
-   which has the same blue half and tab. visibility ends hidden, so even
-   without JS the overlay never blocks the page. */
-.intro {
-  position: fixed;
-  inset: 0;
-  z-index: 1001;
-  display: none;
-  overflow: hidden;
-  background: #ffffff;
-  animation: intro-out 1400ms linear both;
-}
-html[data-intro] .intro {
-  display: block;
-}
-.intro-h,
-.intro-v {
-  position: absolute;
-  background: var(--blue);
-  will-change: transform;
-}
-.intro-h {
-  left: 0;
-  right: 0;
-  top: calc(var(--seam) - var(--bar));
-  height: var(--bar);
-  transform-origin: 0 100%;
-  animation: intro-h 1400ms cubic-bezier(0.65, 0, 0.35, 1) both;
-}
-.intro-v {
-  top: 0;
-  left: calc(35% - var(--bar) / 2);
-  width: var(--bar);
-  height: calc(var(--seam) + var(--bar) * 0.6);
-  transform-origin: 50% 0;
-  animation: intro-v 1400ms cubic-bezier(0.65, 0, 0.35, 1) both;
-}
-@keyframes intro-h {
-  0% { transform: scale(0, 1); }
-  32%, 44% { transform: scale(1, 1); }
-  78%, 100% { transform: scale(1, var(--fill, 12)); }
-}
-@keyframes intro-v {
-  0%, 10% { transform: scale(1, 0); }
-  42%, 100% { transform: scale(1, 1); }
-}
-@keyframes intro-out {
-  0%, 80% { opacity: 1; visibility: visible; }
-  100% { opacity: 0; visibility: hidden; }
-}
-/* The tab of the cross that stays under the blue half on the real page. */
-.seam-tab {
-  position: absolute;
-  top: 100%;
-  left: calc(35% - var(--bar) / 2);
-  width: var(--bar);
-  height: calc(var(--bar) * 0.6);
-  background: var(--blue);
-}
-
-/* Landing buttons: a flag band sweeps across on hover/focus (250ms, a thin
-   contrasting seam on its leading edge), press scales to 0.98. */
-.fx-btn {
-  position: relative;
-  isolation: isolate;
-  overflow: hidden;
-  --sweep: var(--navy);
-  --sweep-edge: #ffffff;
-}
-.fx-btn::before {
-  content: "";
-  position: absolute;
-  inset: 0 auto 0 0;
-  z-index: -1;
-  width: calc(100% + 6px);
-  background: linear-gradient(90deg, var(--sweep) calc(100% - 6px), var(--sweep-edge) 0);
-  transform: translateX(-100%);
-  transition: transform 250ms cubic-bezier(0.65, 0, 0.35, 1);
-}
-.fx-btn:hover::before,
-.fx-btn:focus-visible::before {
-  transform: translateX(0);
-}
-.fx-btn:not(:disabled):active {
-  transform: scale(0.98);
-}
-.fx-btn-light {
-  --sweep: var(--tint);
-  --sweep-edge: var(--blue);
-}
-
-/* Focus moved to a heading after a route change: no ring for mouse users. */
-h1[tabindex="-1"]:focus:not(:focus-visible) {
-  outline: none;
-}
-
-@media print {
-  .ft,
-  .intro {
-    display: none !important;
-  }
 }
 
 /* Reduced motion: no animation or transition anywhere. */

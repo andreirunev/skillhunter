@@ -1,4 +1,4 @@
-import Link from "@/components/TransitionLink";
+import Link from "next/link";
 import type { ReactNode } from "react";
 
 // Full-width tappable card: leading tile, title, grey sub line, optional meta

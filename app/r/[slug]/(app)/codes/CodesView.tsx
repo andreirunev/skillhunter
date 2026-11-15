@@ -1,8 +1,8 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
-import Link from "@/components/TransitionLink";
-import { useFlagNav } from "@/components/TransitionProvider";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ChevronRight, CircleCheck, CircleDot, Printer } from "lucide-react";
 import { FlagMini } from "@/components/FlagLoader";
 import { SectionLabel } from "@/components/ui/ScreenTitle";
@@ -37,7 +37,7 @@ export function CodesView({ slug, free, taken, codes, contests, preselect, conte
   days: number;
   highlight: boolean;
 }) {
-  const router = useFlagNav();
+  const router = useRouter();
   const [state, formAction, pending] = useActionState(createCodes, { error: "", created: 0, batch: null });
   const [count, setCount] = useState("10");
   const [contest, setContest] = useState(preselect);

@@ -1,26 +1,20 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
+import { useActionState } from "react";
 import { FlagMini } from "@/components/FlagLoader";
-import { useFlagNav } from "@/components/TransitionProvider";
 import { checkPin } from "./actions";
 
-// checkPin redirects on a right PIN, so Next.js navigates by itself: the wipe
-// covers on submit and retracts again if the PIN comes back wrong.
+// checkPin redirects on a right PIN, so Next.js navigates by itself.
 export function usePinAction() {
-  const nav = useFlagNav();
   const [state, formAction, pending] = useActionState(checkPin, { error: "" });
-  useEffect(() => {
-    if (state.error) nav.cancel();
-  }, [state, nav]);
-  return { error: state.error, formAction, pending, onSubmit: () => nav.cover() };
+  return { error: state.error, formAction, pending };
 }
 
 export function PinForm() {
-  const { error, formAction, pending, onSubmit } = usePinAction();
+  const { error, formAction, pending } = usePinAction();
 
   return (
-    <form action={formAction} onSubmit={onSubmit} className="flex flex-col gap-3">
+    <form action={formAction} className="flex flex-col gap-3">
       <label htmlFor="pin" className="text-sm font-semibold text-slate-700">Company PIN</label>
       <input
         id="pin"

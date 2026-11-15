@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "@/components/TransitionLink";
+import Link from "next/link";
 import { createContext, useContext, useState, type ReactNode } from "react";
 import { ChevronLeft } from "lucide-react";
 import { StatusPill } from "@/components/ui/StatusPill";

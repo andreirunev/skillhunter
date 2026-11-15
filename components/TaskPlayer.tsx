@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useFlagNav } from "@/components/TransitionProvider";
+import { useRouter } from "next/navigation";
 import { useLang } from "@/components/CandidateShell";
 import { SimTaskView } from "@/components/SimInputs";
 import { FlagMini } from "@/components/FlagLoader";
@@ -18,7 +18,7 @@ const clock = (ms: number) => {
 };
 
 export function TaskPlayer({ attempt, tasks, saved }: Props) {
-  const router = useFlagNav();
+  const router = useRouter();
   const lang = useLang();
   const savedById = Object.fromEntries(saved.map((s) => [s.task_id, s]));
 

@@ -1,4 +1,4 @@
-import Link from "@/components/TransitionLink";
+import Link from "next/link";
 import { CandidateShell } from "@/components/CandidateShell";
 import { t } from "@/lib/i18n";
 

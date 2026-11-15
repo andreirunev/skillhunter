@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useFlagNav } from "@/components/TransitionProvider";
+import { useRouter } from "next/navigation";
 import { KeyRound } from "lucide-react";
 import { FlagMini } from "@/components/FlagLoader";
 import { isInviteCode, normalizeInviteCode } from "@/lib/stage";
@@ -10,7 +10,7 @@ import { isInviteCode, normalizeInviteCode } from "@/lib/stage";
 // phone. The server looks the code up within this company and, on a match,
 // the card opens already verified. The code itself is never shown here.
 export function FindByCode({ slug, autoFocus = false }: { slug: string; autoFocus?: boolean }) {
-  const router = useFlagNav();
+  const router = useRouter();
   const [typed, setTyped] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);

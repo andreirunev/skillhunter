@@ -1,4 +1,4 @@
-import Link from "@/components/TransitionLink";
+import Link from "next/link";
 import { PinForm } from "./PinForm";
 
 export default function RecruiterLogin() {

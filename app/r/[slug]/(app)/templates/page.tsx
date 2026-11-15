@@ -1,4 +1,4 @@
-import Link from "@/components/TransitionLink";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { RecruiterLang } from "@/components/RecruiterLang";
