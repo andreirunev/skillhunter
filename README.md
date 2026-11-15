@@ -1,36 +1,49 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# SkillHunter
 
-## Getting Started
+Show your skills, not your CV. At a job fair a candidate gets a single-use booth code, solves short job-simulation tasks under an anonymous avatar, and the recruiter sees the answers (not a score) before inviting them to a live follow-up at the booth. A human makes every decision.
 
-First, run the development server:
+Built at Junction 2026 for the City of Espoo challenge "Rethinking Recruitment". Demo data is synthetic.
+
+## Responsible design
+
+- No overall score, ranking, sorting by results or automatic labels. Status labels are set by the recruiter.
+- Flags are three plain rules (very fast, took much longer, answer changed 3+ times), shown with an explanation. They never lower anything.
+- Candidates are anonymous (avatar + single-use code). No CV, IP address, location or tab tracking.
+- Contact details are stored only after a full-interview request and the candidate's explicit consent.
+
+## Stack
+
+Next.js 16 (App Router) + TypeScript + Tailwind CSS v4 + Postgres (Supabase) via `postgres` (plain SQL) + `qrcode`. Deployed on Vercel.
+
+## Run locally
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+cp .env.example .env.local   # fill in DATABASE_URL
+npm run db:init              # create tables (safe to re-run)
+npm run db:seed              # seed demo companies, contests and candidates
+npm run dev                  # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Environment variables:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- `DATABASE_URL`: Supabase transaction pooler URI (port 6543). Never commit it.
+- `DEMO_MODE` (optional): set to `1` to show "Reset demo data" on the Contests tab.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+`npm run db:reseed` wipes demo attempts, codes and published versions, then seeds again.
 
-## Learn More
+## Demo
 
-To learn more about Next.js, take a look at the following resources:
+- `/`: landing with a booth-code box (candidate) and a PIN box (recruiter).
+- `/join`: enter a booth code. `/demo/<slug>` issues a fresh code for this device (e.g. `/demo/kulku`).
+- `/r`: recruiter sign-in. The demo PIN is the company slug (`kirkas`, `silta`, `kulku`, `pilvi`, `leikki`).
+- `/r/<slug>`: candidates, booth codes, stats and contests (test builder).
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Known demo limitations
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- Recruiter screens and recruiter API routes are not login-protected: anyone with the link can open them. A real deployment needs staff accounts.
+- The demo PIN is the company slug.
 
-## Deploy on Vercel
+## Licence
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+MIT, see `LICENSE`.

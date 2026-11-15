@@ -15,6 +15,8 @@ export function TaskNotes({ attemptId, taskId, questions, initialAsked, initialN
 }) {
   const [asked, setAsked] = useState(initialAsked);
   const [note, setNote] = useState(initialNote);
+  // Last note the server has, so clearing a note that was just saved is saved too.
+  const [storedNote, setStoredNote] = useState(initialNote);
   const [saved, setSaved] = useState<"idle" | "saving" | "error">("idle");
 
   async function save(nextAsked: boolean, nextNote: string) {
@@ -25,7 +27,10 @@ export function TaskNotes({ attemptId, taskId, questions, initialAsked, initialN
       body: JSON.stringify({ taskId, asked: nextAsked, note: nextNote }),
     }).catch(() => null);
     setSaved(res?.ok ? "idle" : "error");
-    if (res?.ok) toast("Saved", 2000);
+    if (res?.ok) {
+      setStoredNote(nextNote);
+      toast("Saved", 2000);
+    }
   }
 
   return (
@@ -53,7 +58,7 @@ export function TaskNotes({ attemptId, taskId, questions, initialAsked, initialN
       <textarea
         value={note}
         onChange={(e) => setNote(e.target.value)}
-        onBlur={() => note !== initialNote && save(asked, note)}
+        onBlur={() => note !== storedNote && save(asked, note)}
         rows={2}
         maxLength={2000}
         placeholder="Note (what they explained)…"

@@ -123,7 +123,8 @@ export function TaskPlayer({ attempt, tasks, saved }: Props) {
 
   const progress = Math.round(((index + (answered ? 1 : 0)) / tasks.length) * 100);
   // Unanswered: the forward button skips (saves "no answer") and looks secondary.
-  const forwardLabel = answered ? t(lang, isLast ? "finish" : "next") : t(lang, "skip");
+  // On the last task it always says Finish, since pressing it ends the test.
+  const forwardLabel = t(lang, isLast ? "finish" : answered ? "next" : "skip");
 
   return (
     <div className="mx-auto flex w-full max-w-md flex-1 flex-col">

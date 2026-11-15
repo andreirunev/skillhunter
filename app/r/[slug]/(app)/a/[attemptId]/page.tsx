@@ -61,7 +61,7 @@ export default async function CandidatePage(props: PageProps<"/r/[slug]/a/[attem
           </dl>
           <p className={`flex items-center gap-2 text-sm font-semibold ${flagCount ? "text-warn" : "text-muted"}`}>
             <Flag className="size-4 shrink-0" aria-hidden />
-            {flagCount ? joinSep([`${flagCount} flag${flagCount === 1 ? "" : "s"}`, "review below"]) : "No flags fired"}
+            <span>{flagCount ? joinSep([`${flagCount} flag${flagCount === 1 ? "" : "s"}`, "review below"]) : "No flags fired"}</span>
           </p>
           <p className="text-[13px] text-muted">
             Flags are three plain rules (very fast, took longer, changed 3+ times), not AI. They never lower anything.

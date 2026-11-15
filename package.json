@@ -12,9 +12,6 @@
     "db:reseed": "node --env-file=.env.local --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/db.ts seed --fresh"
   },
   "dependencies": {
-    "@base-ui/react": "^1.9.0",
-    "class-variance-authority": "^0.7.1",
-    "cn": "^0.5.2",
     "lucide-react": "^1.73.0",
     "next": "16.4.6",
     "postgres": "^4.1.1",
