@@ -2,7 +2,7 @@
 // kept in localStorage under one key; with none saved, the system preference
 // decides. Server-safe constants: no "use client" here.
 
-export const THEME_KEY = "skillscan-theme";
+export const THEME_KEY = "skillhunter-theme";
 
 // Inlined in <head>: sets <html data-theme> before the first paint (no flash).
 export const THEME_SCRIPT = `(function(){var t;try{t=localStorage.getItem("${THEME_KEY}")}catch(e){}if(t!=="light"&&t!=="dark")t=matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";document.documentElement.setAttribute("data-theme",t)})()`;

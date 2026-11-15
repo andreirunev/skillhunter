@@ -1,4 +1,4 @@
-# SkillScan: project context (v3)
+# SkillHunter: project context (v3)
 
 ## 1. Event and challenge
 
@@ -23,7 +23,7 @@
 - The user is a student on the team and writes to Claude in **Russian**. Answer in Russian. Submission text and project documents are in English.
 - About 10 hours of build time. Priorities in this order: (1) mobile-first, simple and pretty, (2) the main flow works end to end, (3) responsible design is visible in the UI, (4) pitch.
 
-## 4. Product: SkillScan
+## 4. Product: SkillHunter
 
 ### Core idea
 Candidates skip the CV. At a job fair they take a company brochure and a personal QR code from the recruiter, then complete short practical tasks under an anonymous avatar. The recruiter sees proof of skill instead of an AI-written CV. If interested, the recruiter invites the candidate to the booth and in a live conversation asks follow-up questions about each answer. The recruiter alone decides about an interview.
@@ -97,7 +97,7 @@ State problem figures only as clearly labelled assumptions/estimates. Demo uses 
 - **Deploy: Next.js on Vercel, Postgres on Supabase.** Nothing runs on boot (serverless).
 - **One env var: `DATABASE_URL`** = Supabase *Transaction pooler* URI (port 6543). Locally in `.env.local` (gitignored; empty template in `.env.example`), in production in the Vercel project env vars. Never commit or print it.
 - **Database scripts** (both read `DATABASE_URL` from `.env.local`): `npm run db:init` creates the tables (`CREATE TABLE IF NOT EXISTS`, safe to re-run); `npm run db:seed` seeds the demo data (re-runnable, no duplicates).
-- Create the app: `npx create-next-app@latest skillscan --ts --tailwind --app --no-src-dir --eslint --import-alias "@/*" --use-npm --yes`, then `npm i postgres qrcode` and `npm i -D @types/qrcode`.
+- Create the app: `npx create-next-app@latest skillhunter --ts --tailwind --app --no-src-dir --eslint --import-alias "@/*" --use-npm --yes`, then `npm i postgres qrcode` and `npm i -D @types/qrcode`.
 
 ### Next.js 16 gotchas (this version differs from older docs)
 - `AGENTS.md` says to read the bundled docs in `node_modules/next/dist/docs/` before coding. Do it for any API you're unsure about.

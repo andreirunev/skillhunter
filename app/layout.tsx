@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "SkillScan",
+  title: "SkillHunter",
   description: "Show your skills, not your CV: solve real tasks at the job fair, then talk it through with a human.",
 };
 

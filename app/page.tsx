@@ -15,7 +15,7 @@ const display = Bricolage_Grotesque({
 });
 
 export const metadata: Metadata = {
-  title: "SkillScan - skills over CVs at Espoo recruitment events",
+  title: "SkillHunter - skills over CVs at Espoo recruitment events",
   description: "Short practical tasks at the booth. Recruiters decide who to talk to.",
 };
 
@@ -49,12 +49,12 @@ export default function Home() {
     <div data-landing className={`${display.variable} lp`}>
       <LandingMotion />
       <header className="lp-header">
-        <span className="lp-wordmark">SkillScan</span>
+        <span className="lp-wordmark">SkillHunter</span>
         <span className="lp-pill">Demo</span>
       </header>
 
       <main>
-        <h1 className="sr-only">SkillScan: skills over CVs at job fairs</h1>
+        <h1 className="sr-only">SkillHunter: skills over CVs at job fairs</h1>
         <section className="lp-split" aria-label="Start">
           <div className="lp-half lp-light">
             <div className="lp-hero">

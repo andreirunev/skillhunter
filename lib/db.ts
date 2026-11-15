@@ -227,13 +227,13 @@ ALTER TABLE company_tests   ENABLE ROW LEVEL SECURITY;
 `;
 
 // One small pool per server process, kept on globalThis so dev reloads reuse it.
-const globalForDb = globalThis as unknown as { __skillscanSql?: postgres.Sql };
+const globalForDb = globalThis as unknown as { __skillhunterSql?: postgres.Sql };
 
 export function db(): postgres.Sql {
-  if (!globalForDb.__skillscanSql) {
+  if (!globalForDb.__skillhunterSql) {
     const url = process.env.DATABASE_URL;
     if (!url) throw new Error("DATABASE_URL is not set: copy .env.example to .env.local and fill it in.");
-    globalForDb.__skillscanSql = postgres(url, {
+    globalForDb.__skillhunterSql = postgres(url, {
       prepare: false, // the transaction pooler cannot keep prepared statements
       max: 5,
       idle_timeout: 20,
@@ -241,7 +241,7 @@ export function db(): postgres.Sql {
       ssl: "require",
     });
   }
-  return globalForDb.__skillscanSql;
+  return globalForDb.__skillhunterSql;
 }
 
 export type Company = {

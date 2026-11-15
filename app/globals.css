@@ -270,6 +270,25 @@ a[role="button"],
   }
 }
 
+/* Page and tab content (r/[slug]/(app)/template.tsx, CandidatesView): fade
+   in and rise 6px on mount, opacity and transform only. A moving parent would
+   carry fixed bars (FAB, action dock) with it, so a wrapper that holds one
+   animates its other children instead, up to two levels down. Sheets
+   (.fixed.inset-0) open later and are left alone. Reduced motion: no slide. */
+@media (prefers-reduced-motion: no-preference) {
+  .page-in:not(:has(.fixed:not(.inset-0))),
+  .page-in:has(.fixed:not(.inset-0)) > :not(.fixed, :has(.fixed:not(.inset-0))),
+  .page-in:has(.fixed:not(.inset-0)) > :has(.fixed:not(.inset-0)) > :not(.fixed, :has(.fixed:not(.inset-0))) {
+    animation: page-in 200ms ease-out;
+  }
+}
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
 /* Task type cards (components/TaskTypeCards.tsx): slow 6s loops. The static
    styles are the last frame, which is what reduced motion shows. */
 @media (prefers-reduced-motion: no-preference) {

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-const EVENT = "skillscan:ui-toast";
+const EVENT = "skillhunter:ui-toast";
 const SHOW_MS = 2500;
 const FADE_MS = 150;
 

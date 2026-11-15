@@ -93,27 +93,30 @@ export function CandidatesView({ slug, items, focusCode = false }: { slug: strin
   return (
     <>
       <Segmented label="Candidate level" options={SCOPES} value={scope} onChange={pickScope} />
-      {scope === "shortlist" && <SearchInput label="Search candidates" placeholder="Search name" value={query} onChange={setQuery} />}
-      {scope === "shortlist" && (
-        <p className="flex items-start gap-2 rounded-card border border-border bg-card p-3 text-[13px] text-muted">
-          <Lock className="mt-0.5 size-4 shrink-0" aria-hidden />
-          Contact data is shared only by the candidate&apos;s consent. Delete with event data.
-        </p>
-      )}
+      {/* Keyed by tab, so switching tabs remounts it and it fades in (.page-in). */}
+      <div key={scope} className="page-in flex flex-col gap-4">
+        {scope === "shortlist" && <SearchInput label="Search candidates" placeholder="Search name" value={query} onChange={setQuery} />}
+        {scope === "shortlist" && (
+          <p className="flex items-start gap-2 rounded-card border border-border bg-card p-3 text-[13px] text-muted">
+            <Lock className="mt-0.5 size-4 shrink-0" aria-hidden />
+            Contact data is shared only by the candidate&apos;s consent. Delete with event data.
+          </p>
+        )}
 
-      <div className="grid grid-cols-2 gap-3">
-        {STATS.map((s) => (
-          <StatCard key={s.status} label={STATUS_TEXT[s.status]} icon={s.icon} tone={s.tone}
-            value={pool.filter((c) => c.status === s.status).length}
-            active={filter === s.status} onClick={() => pickStat(s.status)} />
-        ))}
+        <div className="grid grid-cols-2 gap-3">
+          {STATS.map((s) => (
+            <StatCard key={s.status} label={STATUS_TEXT[s.status]} icon={s.icon} tone={s.tone}
+              value={pool.filter((c) => c.status === s.status).length}
+              active={filter === s.status} onClick={() => pickStat(s.status)} />
+          ))}
+        </div>
+
+        {scope === "anonymous" && <FindByCode slug={slug} autoFocus={focusCode} onMatch={setCode} />}
+        <FilterPills label="Filter by status" options={FILTERS} value={filter} onChange={setFilter} />
+
+        {needs.length > 0 && <Section label={joinSep(["Needs your call", needs.length])} slug={slug} items={needs} />}
+        {(rest.length > 0 || needs.length === 0) && <Section label={joinSep([restLabel, rest.length])} slug={slug} items={rest} />}
       </div>
-
-      {scope === "anonymous" && <FindByCode slug={slug} autoFocus={focusCode} onMatch={setCode} />}
-      <FilterPills label="Filter by status" options={FILTERS} value={filter} onChange={setFilter} />
-
-      {needs.length > 0 && <Section label={joinSep(["Needs your call", needs.length])} slug={slug} items={needs} />}
-      {(rest.length > 0 || needs.length === 0) && <Section label={joinSep([restLabel, rest.length])} slug={slug} items={rest} />}
     </>
   );
 }
