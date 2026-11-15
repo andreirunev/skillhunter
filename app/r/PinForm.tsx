@@ -5,13 +5,8 @@ import { FlagMini } from "@/components/FlagLoader";
 import { checkPin } from "./actions";
 
 // checkPin redirects on a right PIN, so Next.js navigates by itself.
-export function usePinAction() {
-  const [state, formAction, pending] = useActionState(checkPin, { error: "" });
-  return { error: state.error, formAction, pending };
-}
-
 export function PinForm() {
-  const { error, formAction, pending } = usePinAction();
+  const [{ error }, formAction, pending] = useActionState(checkPin, { error: "" });
 
   return (
     <form action={formAction} className="flex flex-col gap-3">
